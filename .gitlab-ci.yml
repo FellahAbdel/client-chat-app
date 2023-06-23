@@ -1,0 +1,24 @@
+stages:
+  - build
+  - test
+
+image: montavont/algodesreseaux
+
+build_12:
+  stage: build
+  script:
+    - cd 12-chat
+    - scons
+  artifacts:
+    paths:
+      - 12-chat/client-chat
+
+# run tests using the binary build before
+test_12:
+  stage: test
+  needs: [build_12]
+  script:
+  - |
+    echo "starting tests"
+    cd 12-chat
+    bash tests.sh
