@@ -56,6 +56,7 @@ int compareString(char *msg1, char *msg2)
 
     return strcmp(msg1, msg2) == 0;
 }
+
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -116,10 +117,10 @@ int main(int argc, char *argv[])
             ssize_t bytesRecv;
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
-            buffer[bytesRecv] = '\0'; // Null-terminate the received message
+            buffer[bytesRecv - 1] = '\0'; // Null-terminate the received message
             printf("%s\n", buffer);
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO\n") == 0)
+            if (strcmp(buffer, "/HELO") == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -168,8 +169,9 @@ int main(int argc, char *argv[])
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
+            message[strlen(message) - 1] = '\0';
             // Implement sending logic here using sendto()
-            if (compareString(message, "/QUIT"))
+            if (strcmp(message, "/QUIT") == 0)
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
                 struct sockaddr_in6 server_quit_addr;
@@ -207,8 +209,10 @@ int main(int argc, char *argv[])
             memset(message, 0, MAX_MSG_LEN);
             ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
                                           (struct sockaddr *)&clientStorage, &clientLen);
+
             if (bytes_recv > 0)
             {
+                message[bytes_recv - 1] = '\0';
                 // Implement message processing logic here
                 if (strcmp(message, "/QUIT") == 0)
                 {
