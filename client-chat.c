@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
         Event: recv / HELO
         Action : print remote addr and port
         */
-        printf("Waiting... /HELO msg\n");
+        printf("Waiting... /HELO msg to be connected.\n");
         int waiting = 1;
         while (waiting)
         {
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
             printf("Received: %s\n", buffer);
 
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO\n") == 0)
+            if (strcmp(buffer, "/HELO") == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -162,9 +162,44 @@ int main(int argc, char *argv[])
             memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
             printf("Sending: %s", message);
+
             // Implement sending logic here using sendto()
+            if (strcmp(message, "/QUIT") == 0)
+            {
+                // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
+                struct sockaddr_in6 server_quit_addr;
+                memset(&server_quit_addr, 0, sizeof(server_quit_addr));
+                server_quit_addr.sin6_family = AF_INET6;
+                server_quit_addr.sin6_port = PORT(portNumber); // Remplacez SERVER_QUIT_PORT par le port du serveur
+
+                CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&server_quit_addr, sizeof(server_quit_addr)));
+                // CHECK(sendto(sockfd, message, strlSERVER_QUIT_PORTen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+                running = 0; // Quit the loop upon /QUIT command
+            }
+            else
+            {
+                // Sending data to the connected client
+                CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+            }
         }
 
+        if (fds[1].revents & POLLIN)
+        {
+            memset(message, 0, MAX_MSG_LEN);
+            ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen);
+            if (bytes_recv > 0)
+            {
+                printf("Received: %s", message);
+
+                // Implement message processing logic here
+
+                if (strcmp(message, "/QUIT") == 0)
+                {
+                    CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+                    running = 0;
+                }
+            }
+        }
         break;
     }
 
