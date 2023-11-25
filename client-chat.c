@@ -117,10 +117,10 @@ int main(int argc, char *argv[])
             ssize_t bytesRecv;
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
-            buffer[bytesRecv - 1] = '\0'; // Null-terminate the received message
+            buffer[bytesRecv] = '\0'; // Null-terminate the received message
             printf("%s\n", buffer);
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO") == 0)
+            if (strcmp(buffer, "/HELO\n") == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
-            message[strlen(message) - 1] = '\0';
+            message[strlen(message)] = '\0';
             // Implement sending logic here using sendto()
             if (strcmp(message, "/QUIT") == 0)
             {
@@ -212,20 +212,20 @@ int main(int argc, char *argv[])
 
             if (bytes_recv > 0)
             {
-                message[bytes_recv - 1] = '\0';
+                message[bytes_recv] = '\0';
                 // Implement message processing logic here
-                if (strcmp(message, "/QUIT") == 0)
+                if (strcmp(message, "/QUIT\n") == 0)
                 {
                     running = 0;
                 }
                 else
                 {
                     // Action print DATA
+                    printf("REC from the socket\n");
                     printf("%s\n", message);
                 }
             }
         }
-        // break;
     }
 
     /* close socket */
