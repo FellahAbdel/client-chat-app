@@ -46,6 +46,16 @@ void sendMessage(int socket, struct addrinfo *destAddr, char *message)
     CHECK(bytesSent);
 }
 
+int compareString(char *msg1, char *msg2)
+{
+    size_t len = strlen(msg1);
+    if (len > 0 && msg1[len - 1] == '\n')
+    {
+        msg1[len - 1] = '\0';
+    }
+
+    return strcmp(msg1, msg2) == 0;
+}
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -82,7 +92,7 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
+            printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
@@ -100,15 +110,16 @@ int main(int argc, char *argv[])
         Action : print remote addr and port
         */
         int waiting = 1;
+        printf("Waiting...\n");
         while (waiting)
         {
             ssize_t bytesRecv;
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
-
+            printf("%s\n", buffer);
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO") == 0)
+            if (strcmp(buffer, "/HELO\n") == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -143,6 +154,7 @@ int main(int argc, char *argv[])
 
     char message[MAX_MSG_LEN];
 
+    printf("Connected..\n");
     /* main loop */
     int running = 1;
     while (running)
@@ -157,7 +169,7 @@ int main(int argc, char *argv[])
             // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
-            if (strcmp(message, "/QUIT") == 0)
+            if (strcmp(message, "/QUIT\n") == 0)
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
                 struct sockaddr_in6 server_quit_addr;
@@ -172,8 +184,21 @@ int main(int argc, char *argv[])
             else
             {
                 // Sending data to the connected client
+                struct addrinfo *dstAddrLst;
+                struct addrinfo hints = {0};
+                hints.ai_family = AF_INET6;
+                hints.ai_socktype = SOCK_DGRAM;
+                hints.ai_protocol = IPPROTO_UDP;
+
+                int res = getaddrinfo(NULL, argv[1], &hints, &dstAddrLst);
+                if (res != 0)
+                {
+                    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
+                    exit(EXIT_FAILURE);
+                }
+
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&clientStorage, clientLen));
+                             dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
             }
         }
 
@@ -188,6 +213,11 @@ int main(int argc, char *argv[])
                 if (strcmp(message, "/QUIT") == 0)
                 {
                     running = 0;
+                }
+                else
+                {
+                    // Action print DATA
+                    printf("%s\n", message);
                 }
             }
         }
