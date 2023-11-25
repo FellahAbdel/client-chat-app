@@ -100,7 +100,8 @@ int main(int argc, char *argv[])
         Action : print remote addr and port
         */
         printf("Waiting... /HELO msg\n");
-        while (1)
+        int waiting = 1;
+        while (waiting)
         {
             ssize_t bytesRecv;
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
@@ -124,8 +125,8 @@ int main(int argc, char *argv[])
                 else
                 {
                     printf("Received /HELO from host: %s, port: %s\n", host, service);
+                    waiting = 0;
                 }
-                break;
             }
         }
     }
@@ -153,12 +154,8 @@ int main(int argc, char *argv[])
     int running = 1;
     while (running)
     {
-        int activity = poll(fds, 2, -1); // -1 une attente indéfini.
-        if (activity < 0)
-        {
-            perror("poll");
-            exit(EXIT_FAILURE);
-        }
+        int activity;
+        CHECK(activity = poll(fds, 2, -1)); // -1 une attente indéfini.
 
         if (fds[0].revents & POLLIN)
         {
