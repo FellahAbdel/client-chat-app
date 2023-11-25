@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
+            // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
         Event: recv / HELO
         Action : print remote addr and port
         */
-        printf("Waiting... /HELO msg to be connected.\n");
+        // printf("Waiting... /HELO msg to be connected.\n");
         int waiting = 1;
         while (waiting)
         {
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
-            printf("Received: %s\n", buffer);
+            // printf("Received: %s\n", buffer);
 
             // Check if the received message is "/HELO"
             if (strcmp(buffer, "/HELO") == 0)
@@ -124,14 +124,15 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    printf("Received /HELO from host: %s, port: %s\n", host, service);
+                    printf("%s %s", host, service);
+                    // printf("Received /HELO from host: %s, port: %s\n", host, service);
                     waiting = 0;
                 }
             }
         }
     }
 
-    printf("Bind réussi. CONNECTED\n");
+    // printf("Bind réussi. CONNECTED\n");
     // ici un client est présent.
 
     /* prepare struct pollfd with stdin and socket for incoming data */
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
         {
             memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
-            printf("Sending: %s", message);
+            // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
             if (strcmp(message, "/QUIT") == 0)
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
             ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen);
             if (bytes_recv > 0)
             {
-                printf("Received: %s", message);
+                // printf("Received: %s", message);
 
                 // Implement message processing logic here
 
@@ -200,7 +201,7 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        break;
+        // break;
     }
 
     /* close socket */
