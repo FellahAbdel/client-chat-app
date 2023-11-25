@@ -99,7 +99,6 @@ int main(int argc, char *argv[])
         Event: recv / HELO
         Action : print remote addr and port
         */
-        // printf("Waiting... /HELO msg to be connected.\n");
         int waiting = 1;
         while (waiting)
         {
@@ -107,7 +106,6 @@ int main(int argc, char *argv[])
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
-            // printf("Received: %s\n", buffer);
 
             // Check if the received message is "/HELO"
             if (strcmp(buffer, "/HELO") == 0)
@@ -125,15 +123,11 @@ int main(int argc, char *argv[])
                 else
                 {
                     printf("%s %s", host, service);
-                    // printf("Received /HELO from host: %s, port: %s\n", host, service);
                     waiting = 0;
                 }
             }
         }
     }
-
-    // printf("Bind réussi. CONNECTED\n");
-    // ici un client est présent.
 
     /* prepare struct pollfd with stdin and socket for incoming data */
     struct pollfd fds[2];
@@ -148,8 +142,6 @@ int main(int argc, char *argv[])
     fds[1].events = POLLIN;
 
     char message[MAX_MSG_LEN];
-    // struct sockaddr_storage clientStorage;
-    // socklen_t clientAddrLen;
 
     /* main loop */
     int running = 1;
@@ -173,30 +165,30 @@ int main(int argc, char *argv[])
                 server_quit_addr.sin6_family = AF_INET6;
                 server_quit_addr.sin6_port = PORT(portNumber); // Remplacez SERVER_QUIT_PORT par le port du serveur
 
-                CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&server_quit_addr, sizeof(server_quit_addr)));
-                // CHECK(sendto(sockfd, message, strlSERVER_QUIT_PORTen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+                CHECK(sendto(sockfd, message, strlen(message), 0,
+                             (struct sockaddr *)&server_quit_addr, sizeof(server_quit_addr)));
                 running = 0; // Quit the loop upon /QUIT command
             }
             else
             {
                 // Sending data to the connected client
-                CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+                CHECK(sendto(sockfd, message, strlen(message), 0,
+                             (struct sockaddr *)&clientStorage, clientLen));
             }
         }
 
         if (fds[1].revents & POLLIN)
         {
             memset(message, 0, MAX_MSG_LEN);
-            ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen);
+            ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
+                                          (struct sockaddr *)&clientStorage, &clientLen);
             if (bytes_recv > 0)
             {
-                // printf("Received: %s", message);
-
                 // Implement message processing logic here
-
                 if (strcmp(message, "/QUIT") == 0)
                 {
-                    CHECK(sendto(sockfd, message, strlen(message), 0, (struct sockaddr *)&clientStorage, clientLen));
+                    CHECK(sendto(sockfd, message, strlen(message), 0,
+                                 (struct sockaddr *)&clientStorage, clientLen));
                     running = 0;
                 }
             }
