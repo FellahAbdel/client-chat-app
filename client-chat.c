@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
             // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
-            if (strcmp(message, "/QUIT\n") == 0)
+            if (compareString(message, "/QUIT"))
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
                 struct sockaddr_in6 server_quit_addr;
