@@ -187,8 +187,6 @@ int main(int argc, char *argv[])
                 // Implement message processing logic here
                 if (strcmp(message, "/QUIT") == 0)
                 {
-                    CHECK(sendto(sockfd, message, strlen(message), 0,
-                                 (struct sockaddr *)&clientStorage, clientLen));
                     running = 0;
                 }
             }
