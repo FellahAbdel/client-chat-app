@@ -73,6 +73,10 @@ int main(int argc, char *argv[])
     server_addr.sin6_port = PORT(portNumber);
     server_addr.sin6_addr = in6addr_any; // On utilise toutes les addresses disponibles.
 
+    struct sockaddr_storage clientStorage;
+    socklen_t clientLen = sizeof(clientStorage);
+
+    char buffer[MAX_MSG_LEN];
     /* check if a client is already present */
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof server_addr) < 0)
     {
@@ -95,42 +99,38 @@ int main(int argc, char *argv[])
         Event: recv / HELO
         Action : print remote addr and port
         */
-        struct addrinfo *dstAddrResultLst;
-        struct addrinfo hints = {0};
-
-        int returnValue = getaddrinfo(NULL, argv[1], &hints, &dstAddrResultLst);
-        if (returnValue != 0)
+        printf("Waiting... /HELO msg\n");
+        while (1)
         {
-            fprintf(stderr, "getaddrinfo : %s\n", gai_strerror(returnValue));
-            exit(EXIT_FAILURE);
-        }
+            ssize_t bytesRecv;
+            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
-        struct addrinfo *result = dstAddrResultLst;
-        while (result != NULL)
-        {
-            void *addr;
-            char ipstr[INET6_ADDRSTRLEN];
+            buffer[bytesRecv] = '\0'; // Null-terminate the received message
+            printf("Received: %s\n", buffer);
 
-            if (result->ai_family == AF_INET)
-            { // IPv4
-                struct sockaddr_in *ipv4 = (struct sockaddr_in *)result->ai_addr;
-                addr = &(ipv4->sin_addr);
+            // Check if the received message is "/HELO"
+            if (strcmp(buffer, "/HELO\n") == 0)
+            {
+                char host[NI_MAXHOST];
+                char service[NI_MAXSERV];
+
+                int result = getnameinfo((struct sockaddr *)&clientStorage, clientLen,
+                                         host, NI_MAXHOST, service, NI_MAXSERV,
+                                         NI_NUMERICHOST | NI_NUMERICSERV);
+                if (result != 0)
+                {
+                    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(result));
+                }
+                else
+                {
+                    printf("Received /HELO from host: %s, port: %s\n", host, service);
+                }
+                break;
             }
-            else
-            { // IPv6
-                struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)result->ai_addr;
-                addr = &(ipv6->sin6_addr);
-            }
-
-            // Convert the IP to a string and print it
-            inet_ntop(result->ai_family, addr, ipstr, sizeof(ipstr));
-            printf("Destination IP: %s\n", ipstr);
-
-            result = result->ai_next;
         }
     }
 
-    printf("Bind réussi.\n");
+    printf("Bind réussi. CONNECTED\n");
     // ici un client est présent.
 
     /* prepare struct pollfd with stdin and socket for incoming data */
@@ -146,10 +146,8 @@ int main(int argc, char *argv[])
     fds[1].events = POLLIN;
 
     char message[MAX_MSG_LEN];
-    struct sockaddr_storage clientAddr;
-    socklen_t clientAddrLen;
-    (void)clientAddr;
-    (void)clientAddrLen;
+    // struct sockaddr_storage clientStorage;
+    // socklen_t clientAddrLen;
 
     /* main loop */
     int running = 1;
