@@ -60,6 +60,7 @@ int compareString(char *msg1, char *msg2)
 int main(int argc, char *argv[])
 {
     int sockfd;
+    int status;
     /* test arg number */
     if (argc != 2)
     {
@@ -70,7 +71,41 @@ int main(int argc, char *argv[])
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
 
+    /* Initiate structure*/
+    struct addrinfo *serverInfo, *p; // p pointer to loop through the result.
+    struct addrinfo hints = {0};
+    hints.ai_addr = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if ((status = getaddrinfo(NULL, argv[1], &hints, &serverInfo)) != 0)
+    {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
     /* create socket */
+    // loop through all the results and bind to the first we can
+    for (p = serverInfo; p != NULL; p = p->ai_next)
+    {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                             p->ai_protocol)) == -1)
+        {
+            perror("listener: socket");
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "listener: failed to bind socket\n");
+        exit(EXIT_FAILURE);
+    }
+
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
     /* set dual stack socket */
@@ -89,6 +124,7 @@ int main(int argc, char *argv[])
 
     char buffer[MAX_MSG_LEN];
     /* check if a client is already present */
+    /* We bind the socket to the port number passed*/
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof server_addr) < 0)
     {
         if (errno == EADDRINUSE)
@@ -229,9 +265,10 @@ int main(int argc, char *argv[])
     }
 
     /* close socket */
-    CHECK(sockfd);
+    CHECK(close(sockfd));
 
     /* free memory */
+    freeaddrinfo(serverInfo);
 
     return 0;
 }
