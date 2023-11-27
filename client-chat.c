@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
+            // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
@@ -148,15 +148,16 @@ int main(int argc, char *argv[])
         Action : print remote addr and port
         */
         int waiting = 1;
-        printf("Waiting...\n");
+        // printf("Waiting...\n");
         while (waiting)
         {
-            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0, (struct sockaddr *)&clientStorage, &clientLen));
+            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
+                                       (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
-            printf("%s\n", buffer);
+            // printf("%s\n", buffer);
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO\n") == 0)
+            if (strcmp(buffer, "/HELO") == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -192,7 +193,7 @@ int main(int argc, char *argv[])
 
     char message[MAX_MSG_LEN];
 
-    printf("Connected..\n");
+    // printf("Connected..\n");
     /* main loop */
     int running = 1;
     while (running)
@@ -238,6 +239,7 @@ int main(int argc, char *argv[])
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
+                freeaddrinfo(dstAddrLst);
             }
         }
 
@@ -251,15 +253,15 @@ int main(int argc, char *argv[])
             {
                 message[bytesRecv] = '\0';
                 // Implement message processing logic here
-                if (strcmp(message, "/QUIT\n") == 0)
+                if (strcmp(message, "/QUIT") == 0)
                 {
                     running = 0;
                 }
                 else
                 {
                     // Action print DATA
-                    printf("REC from the socket\n");
-                    printf("%s\n", message);
+                    // printf("REC from the socket\n");
+                    printf("%s", message);
                 }
             }
         }
