@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
 {
     int sockfd;
     int status;
+    ssize_t bytesRecv;
     /* test arg number */
     if (argc != 2)
     {
@@ -150,8 +151,7 @@ int main(int argc, char *argv[])
         printf("Waiting...\n");
         while (waiting)
         {
-            ssize_t bytesRecv;
-            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
+            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0, (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
             printf("%s\n", buffer);
@@ -174,6 +174,7 @@ int main(int argc, char *argv[])
                     waiting = 0;
                 }
             }
+            fflush(stdout);
         }
     }
 
@@ -243,12 +244,12 @@ int main(int argc, char *argv[])
         if (fds[1].revents & POLLIN)
         {
             memset(message, 0, MAX_MSG_LEN);
-            ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
-                                          (struct sockaddr *)&clientStorage, &clientLen);
+            CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
+                                       (struct sockaddr *)&clientStorage, &clientLen));
 
-            if (bytes_recv > 0)
+            if (bytesRecv > 0)
             {
-                message[bytes_recv] = '\0';
+                message[bytesRecv] = '\0';
                 // Implement message processing logic here
                 if (strcmp(message, "/QUIT\n") == 0)
                 {
