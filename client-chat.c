@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
     int sockfd;
     int status;
     ssize_t bytesRecv;
+
     /* test arg number */
     if (argc != 2)
     {
@@ -191,7 +192,7 @@ int main(int argc, char *argv[])
     fds[1].fd = sockfd;
     fds[1].events = POLLIN;
 
-    char message[MAX_MSG_LEN];
+    char message[MAX_MSG_LEN] = {0};
 
     // printf("Connected..\n");
     /* main loop */
@@ -203,7 +204,7 @@ int main(int argc, char *argv[])
 
         if (fds[0].revents & POLLIN)
         {
-            memset(message, 0, MAX_MSG_LEN);
+            // memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
@@ -211,8 +212,7 @@ int main(int argc, char *argv[])
             if (strncmp(message, "/QUIT", 5) == 0)
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
-                struct sockaddr_in6 server_quit_addr;
-                memset(&server_quit_addr, 0, sizeof(server_quit_addr));
+                struct sockaddr_in6 server_quit_addr = {0};
                 server_quit_addr.sin6_family = AF_INET6;
                 server_quit_addr.sin6_port = PORT(portNumber); // Remplacez SERVER_QUIT_PORT par le port du serveur
 
