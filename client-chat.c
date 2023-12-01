@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
             // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
-            CHECK(sendto(sockfd, "/HELO\n", 6, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
+            CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
         }
         else
         {
@@ -144,7 +144,6 @@ int main(int argc, char *argv[])
     }
     else
     {
-        //* Il y a aucun client sur le port.
         /*
         Event: recv / HELO
         Action : print remote addr and port
@@ -157,11 +156,7 @@ int main(int argc, char *argv[])
                                        (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
-<<<<<<< HEAD
-            // printf("%s", buffer);
-=======
             // printf("%s\n", buffer);
->>>>>>> new-version-of-chat-app
             // Check if the received message is "/HELO"
             if (strncmp(buffer, "/HELO", 5) == 0)
             {
