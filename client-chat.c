@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
             // printf("%s\n", buffer);
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO") == 0)
+            if (strncmp(buffer, "/HELO", 5) == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -207,9 +207,8 @@ int main(int argc, char *argv[])
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
-            message[strlen(message)] = '\0';
             // Implement sending logic here using sendto()
-            if (strcmp(message, "/QUIT") == 0)
+            if (strncmp(message, "/QUIT", 5) == 0)
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
                 struct sockaddr_in6 server_quit_addr;
@@ -253,7 +252,7 @@ int main(int argc, char *argv[])
             {
                 message[bytesRecv] = '\0';
                 // Implement message processing logic here
-                if (strcmp(message, "/QUIT") == 0)
+                if (strncmp(message, "/QUIT", 5) == 0)
                 {
                     running = 0;
                 }
