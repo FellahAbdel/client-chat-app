@@ -60,6 +60,9 @@ int compareString(char *msg1, char *msg2)
 int main(int argc, char *argv[])
 {
     int sockfd;
+    int status;
+    ssize_t bytesRecv;
+
     /* test arg number */
     if (argc != 2)
     {
@@ -70,7 +73,41 @@ int main(int argc, char *argv[])
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
 
+    /* Initiate structure*/
+    struct addrinfo *serverInfo, *p; // p pointer to loop through the result.
+    struct addrinfo hints = {0};
+    hints.ai_addr = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if ((status = getaddrinfo(NULL, argv[1], &hints, &serverInfo)) != 0)
+    {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
     /* create socket */
+    // loop through all the results and bind to the first we can
+    for (p = serverInfo; p != NULL; p = p->ai_next)
+    {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                             p->ai_protocol)) == -1)
+        {
+            perror("listener: socket");
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if (p == NULL)
+    {
+        fprintf(stderr, "listener: failed to bind socket\n");
+        exit(EXIT_FAILURE);
+    }
+
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
     /* set dual stack socket */
@@ -89,6 +126,7 @@ int main(int argc, char *argv[])
 
     char buffer[MAX_MSG_LEN];
     /* check if a client is already present */
+    /* We bind the socket to the port number passed*/
     if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof server_addr) < 0)
     {
         if (errno == EADDRINUSE)
@@ -115,13 +153,17 @@ int main(int argc, char *argv[])
         // printf("Waiting...\n");
         while (waiting)
         {
-            ssize_t bytesRecv;
-            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN, 0, (struct sockaddr *)&clientStorage, &clientLen));
+            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
+                                       (struct sockaddr *)&clientStorage, &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
+<<<<<<< HEAD
             // printf("%s", buffer);
+=======
+            // printf("%s\n", buffer);
+>>>>>>> new-version-of-chat-app
             // Check if the received message is "/HELO"
-            if (strcmp(buffer, "/HELO\n") == 0)
+            if (strncmp(buffer, "/HELO", 5) == 0)
             {
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
@@ -139,6 +181,7 @@ int main(int argc, char *argv[])
                     waiting = 0;
                 }
             }
+            fflush(stdout);
         }
     }
 
@@ -154,7 +197,7 @@ int main(int argc, char *argv[])
     fds[1].fd = sockfd;
     fds[1].events = POLLIN;
 
-    char message[MAX_MSG_LEN];
+    char message[MAX_MSG_LEN] = {0};
 
     // printf("Connected..\n");
     /* main loop */
@@ -166,16 +209,15 @@ int main(int argc, char *argv[])
 
         if (fds[0].revents & POLLIN)
         {
-            memset(message, 0, MAX_MSG_LEN);
+            // memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
-            if (strcmp(message, "/QUIT") == 0)
+            if (strncmp(message, "/QUIT", 5) == 0)
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
-                struct sockaddr_in6 server_quit_addr;
-                memset(&server_quit_addr, 0, sizeof(server_quit_addr));
+                struct sockaddr_in6 server_quit_addr = {0};
                 server_quit_addr.sin6_family = AF_INET6;
                 server_quit_addr.sin6_port = PORT(portNumber); // Remplacez SERVER_QUIT_PORT par le port du serveur
 
@@ -201,20 +243,21 @@ int main(int argc, char *argv[])
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
+                freeaddrinfo(dstAddrLst);
             }
         }
 
         if (fds[1].revents & POLLIN)
         {
             memset(message, 0, MAX_MSG_LEN);
-            ssize_t bytes_recv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
-                                          (struct sockaddr *)&clientStorage, &clientLen);
+            CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
+                                       (struct sockaddr *)&clientStorage, &clientLen));
 
-            if (bytes_recv > 0)
+            if (bytesRecv > 0)
             {
-                message[bytes_recv] = '\0';
+                message[bytesRecv] = '\0';
                 // Implement message processing logic here
-                if (strcmp(message, "/QUIT\n") == 0)
+                if (strncmp(message, "/QUIT", 5) == 0)
                 {
                     running = 0;
                 }
@@ -229,9 +272,10 @@ int main(int argc, char *argv[])
     }
 
     /* close socket */
-    CHECK(sockfd);
+    CHECK(close(sockfd));
 
     /* free memory */
+    freeaddrinfo(serverInfo);
 
     return 0;
 }
