@@ -194,26 +194,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                // // Sending data to the connected client
-                // struct addrinfo *dstAddrLst;
-                // struct addrinfo hints = {0};
-                // hints.ai_family = AF_INET6;
-                // hints.ai_socktype = SOCK_DGRAM;
-                // hints.ai_protocol = IPPROTO_UDP;
 
-                // int res = getaddrinfo(NULL, argv[1], &hints, &dstAddrLst);
-                // if (res != 0)
-                // {
-                //     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
-                //     exit(EXIT_FAILURE);
-                // }
-
-                // CHECK(sendto(sockfd, message, strlen(message), 0,
-                //              dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
-
-                // // Free memory.
-                // freeaddrinfo(dstAddrLst);
-                // Sending data to the connected client using the existing server address
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              (struct sockaddr *)&server_addr, sizeof(server_addr)));
             }
