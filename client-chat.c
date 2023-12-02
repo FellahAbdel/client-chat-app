@@ -46,11 +46,32 @@ void sendMessage(int socket, struct addrinfo *destAddr, char *message)
     CHECK(bytesSent);
 }
 
+// Function to find the suitable address info
+struct addrinfo *findAddressInfo(struct addrinfo *servinfo)
+{
+    struct addrinfo *p;
+
+    for (p = servinfo; p != NULL; p = p->ai_next)
+    {
+        int sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (sockfd == -1)
+        {
+            perror("listener: socket");
+            continue;
+        }
+        close(sockfd); // Close socket as we're not binding here
+        break;
+    }
+
+    return p; // Return the chosen address info
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd;
     int status;
     ssize_t bytesRecv;
+    // int bindResult;
 
     /* test arg number */
     if (argc != 2)
@@ -67,7 +88,9 @@ int main(int argc, char *argv[])
     struct addrinfo hints = {0};
     hints.ai_addr = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;
+    hints.ai_flags = AI_PASSIVE | AI_V4MAPPED;
+
+    (void)p;
 
     if ((status = getaddrinfo(NULL, argv[1], &hints, &serverInfo)) != 0)
     {
@@ -76,28 +99,25 @@ int main(int argc, char *argv[])
     }
 
     /* create socket */
-    // loop through all the results and bind to the first we can
-    for (p = serverInfo; p != NULL; p = p->ai_next)
-    {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1)
-        {
-            perror("listener: socket");
-            continue;
-        }
-        else
-        {
-            break;
-        }
-    }
+    struct addrinfo *chosen = findAddressInfo(serverInfo); // Get the chosen address info
 
-    if (p == NULL)
+    if (chosen == NULL)
     {
-        fprintf(stderr, "listener: failed to bind socket\n");
+        fprintf(stderr, "Failed to find suitable address info\n");
+        freeaddrinfo(serverInfo);
         exit(EXIT_FAILURE);
     }
 
-    CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
+    sockfd = socket(chosen->ai_family, chosen->ai_socktype, chosen->ai_protocol);
+
+    if (sockfd == -1)
+    {
+        perror("listener: socket");
+        freeaddrinfo(serverInfo);
+        exit(EXIT_FAILURE);
+    }
+
+    // CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
     /* set dual stack socket */
     // Désactivation de l'option IPV6_V6ONLY pour permettre IPv4 et IPv6
