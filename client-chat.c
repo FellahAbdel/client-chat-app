@@ -42,7 +42,8 @@ void usage(char *programName)
 void sendMessage(int socket, struct addrinfo *destAddr, char *message)
 {
     size_t len = strlen(message);
-    ssize_t bytesSent = sendto(socket, message, len, 0, destAddr->ai_addr, destAddr->ai_addrlen);
+    ssize_t bytesSent = sendto(socket, message, len, 0, destAddr->ai_addr,
+                               destAddr->ai_addrlen);
     CHECK(bytesSent);
 }
 
@@ -105,7 +106,8 @@ int main(int argc, char *argv[])
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
             struct sockaddr_in6 existingUserAddr = server_addr; // Store existing user address
-            CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&existingUserAddr,
+            CHECK(sendto(sockfd, "/HELO", 5, 0,
+                         (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
         }
         else
@@ -125,7 +127,8 @@ int main(int argc, char *argv[])
         while (waiting)
         {
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
-                                       (struct sockaddr *)&clientStorage, &clientLen));
+                                       (struct sockaddr *)&clientStorage,
+                                       &clientLen));
 
             buffer[bytesRecv] = '\0'; // Null-terminate the received message
             // printf("%s\n", buffer);
@@ -135,9 +138,9 @@ int main(int argc, char *argv[])
                 char host[NI_MAXHOST];
                 char service[NI_MAXSERV];
 
-                int result = getnameinfo((struct sockaddr *)&clientStorage, clientLen,
-                                         host, NI_MAXHOST, service, NI_MAXSERV,
-                                         NI_NUMERICHOST | NI_NUMERICSERV);
+                int result = getnameinfo((struct sockaddr *)&clientStorage,
+                                         clientLen, host, NI_MAXHOST, service,
+                                         NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV);
                 if (result != 0)
                 {
                     fprintf(stderr, "getnameinfo: %s\n", gai_strerror(result));
@@ -183,20 +186,24 @@ int main(int argc, char *argv[])
             // Implement sending logic here using sendto()
             if (strncmp(message, "/QUIT", 5) == 0)
             {
-                // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
+                // Envoyer la commande /QUIT au serveur ou à une adresse
+                // spécifique
                 struct sockaddr_in6 server_quit_addr = {0};
                 server_quit_addr.sin6_family = AF_INET6;
                 server_quit_addr.sin6_port = PORT(portNumber);
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&server_quit_addr, sizeof(server_quit_addr)));
+                             (struct sockaddr *)&server_quit_addr,
+                             sizeof(server_quit_addr)));
+
                 running = 0; // Quit the loop upon /QUIT command
             }
             else
             {
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&server_addr, sizeof(server_addr)));
+                             (struct sockaddr *)&server_addr,
+                             sizeof(server_addr)));
             }
         }
 
@@ -204,7 +211,8 @@ int main(int argc, char *argv[])
         {
             memset(message, 0, MAX_MSG_LEN);
             CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
-                                       (struct sockaddr *)&clientStorage, &clientLen));
+                                       (struct sockaddr *)&clientStorage,
+                                       &clientLen));
 
             if (bytesRecv > 0)
             {
