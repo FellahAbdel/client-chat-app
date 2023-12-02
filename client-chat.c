@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
             // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
-            CHECK(sendto(sockfd, "/HELO\n", 6, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
+            CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
         }
         else
         {
