@@ -103,7 +103,10 @@ int main(int argc, char *argv[])
             // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
-            CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)));
+            // Sending /HELO to the existing user occupying the port
+            struct sockaddr_in6 existingUserAddr = server_addr; // Store existing user address
+            CHECK(sendto(sockfd, "/HELO", 5, 0, (struct sockaddr *)&existingUserAddr,
+                         sizeof(existingUserAddr)));
         }
         else
         {
@@ -191,25 +194,28 @@ int main(int argc, char *argv[])
             }
             else
             {
-                // Sending data to the connected client
-                struct addrinfo *dstAddrLst;
-                struct addrinfo hints = {0};
-                hints.ai_family = AF_INET6;
-                hints.ai_socktype = SOCK_DGRAM;
-                hints.ai_protocol = IPPROTO_UDP;
+                // // Sending data to the connected client
+                // struct addrinfo *dstAddrLst;
+                // struct addrinfo hints = {0};
+                // hints.ai_family = AF_INET6;
+                // hints.ai_socktype = SOCK_DGRAM;
+                // hints.ai_protocol = IPPROTO_UDP;
 
-                int res = getaddrinfo(NULL, argv[1], &hints, &dstAddrLst);
-                if (res != 0)
-                {
-                    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
-                    exit(EXIT_FAILURE);
-                }
+                // int res = getaddrinfo(NULL, argv[1], &hints, &dstAddrLst);
+                // if (res != 0)
+                // {
+                //     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
+                //     exit(EXIT_FAILURE);
+                // }
 
+                // CHECK(sendto(sockfd, message, strlen(message), 0,
+                //              dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
+
+                // // Free memory.
+                // freeaddrinfo(dstAddrLst);
+                // Sending data to the connected client using the existing server address
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
-
-                // Free memory.
-                freeaddrinfo(dstAddrLst);
+                             (struct sockaddr *)&server_addr, sizeof(server_addr)));
             }
         }
 
