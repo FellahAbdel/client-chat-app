@@ -46,17 +46,6 @@ void sendMessage(int socket, struct addrinfo *destAddr, char *message)
     CHECK(bytesSent);
 }
 
-int compareString(char *msg1, char *msg2)
-{
-    size_t len = strlen(msg1);
-    if (len > 0 && msg1[len - 1] == '\n')
-    {
-        msg1[len - 1] = '\0';
-    }
-
-    return strcmp(msg1, msg2) == 0;
-}
-
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -214,7 +203,7 @@ int main(int argc, char *argv[])
                 // Envoyer la commande /QUIT au serveur ou à une adresse spécifique
                 struct sockaddr_in6 server_quit_addr = {0};
                 server_quit_addr.sin6_family = AF_INET6;
-                server_quit_addr.sin6_port = PORT(portNumber); // Remplacez SERVER_QUIT_PORT par le port du serveur
+                server_quit_addr.sin6_port = PORT(portNumber);
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              (struct sockaddr *)&server_quit_addr, sizeof(server_quit_addr)));
@@ -238,6 +227,8 @@ int main(int argc, char *argv[])
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              dstAddrLst->ai_addr, dstAddrLst->ai_addrlen));
+
+                // Free memory.
                 freeaddrinfo(dstAddrLst);
             }
         }
@@ -251,6 +242,7 @@ int main(int argc, char *argv[])
             if (bytesRecv > 0)
             {
                 message[bytesRecv] = '\0';
+
                 // Implement message processing logic here
                 if (strncmp(message, "/QUIT", 5) == 0)
                 {
