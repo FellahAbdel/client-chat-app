@@ -46,26 +46,6 @@ void sendMessage(int socket, struct addrinfo *destAddr, char *message)
     CHECK(bytesSent);
 }
 
-// Function to find the suitable address info
-struct addrinfo *findAddressInfo(struct addrinfo *servinfo)
-{
-    struct addrinfo *p;
-
-    for (p = servinfo; p != NULL; p = p->ai_next)
-    {
-        int sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (sockfd == -1)
-        {
-            perror("listener: socket");
-            continue;
-        }
-        close(sockfd); // Close socket as we're not binding here
-        break;
-    }
-
-    return p; // Return the chosen address info
-}
-
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -84,13 +64,11 @@ int main(int argc, char *argv[])
     checkPortNumber(portNumber);
 
     /* Initiate structure*/
-    struct addrinfo *serverInfo, *p; // p pointer to loop through the result.
+    struct addrinfo *serverInfo;
     struct addrinfo hints = {0};
     hints.ai_addr = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE | AI_V4MAPPED;
-
-    (void)p;
 
     if ((status = getaddrinfo(NULL, argv[1], &hints, &serverInfo)) != 0)
     {
@@ -99,25 +77,7 @@ int main(int argc, char *argv[])
     }
 
     /* create socket */
-    struct addrinfo *chosen = findAddressInfo(serverInfo); // Get the chosen address info
-
-    if (chosen == NULL)
-    {
-        fprintf(stderr, "Failed to find suitable address info\n");
-        freeaddrinfo(serverInfo);
-        exit(EXIT_FAILURE);
-    }
-
-    sockfd = socket(chosen->ai_family, chosen->ai_socktype, chosen->ai_protocol);
-
-    if (sockfd == -1)
-    {
-        perror("listener: socket");
-        freeaddrinfo(serverInfo);
-        exit(EXIT_FAILURE);
-    }
-
-    // CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
+    CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
     /* set dual stack socket */
     // Désactivation de l'option IPV6_V6ONLY pour permettre IPv4 et IPv6
