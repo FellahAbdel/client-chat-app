@@ -202,7 +202,6 @@ int main(int argc, char *argv[])
 
         if (fds[1].revents & POLLIN)
         {
-            memset(message, 0, MAX_MSG_LEN);
             CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
