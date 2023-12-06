@@ -192,7 +192,8 @@ int main(int argc, char *argv[])
             }
             else
             {
-
+                // Envoi de message au client déjà connecté en utilisant
+                // l'adresse du server existant.
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              (struct sockaddr *)&serverAddr,
                              sizeof(serverAddr)));
