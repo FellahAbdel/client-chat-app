@@ -39,14 +39,6 @@ void usage(char *programName)
 
 #define MAX_MSG_LEN 1024
 
-void sendMessage(int socket, struct addrinfo *destAddr, char *message)
-{
-    size_t len = strlen(message);
-    ssize_t bytesSent = sendto(socket, message, len, 0, destAddr->ai_addr,
-                               destAddr->ai_addrlen);
-    CHECK(bytesSent);
-}
-
 int main(int argc, char *argv[])
 {
     int sockfd;
