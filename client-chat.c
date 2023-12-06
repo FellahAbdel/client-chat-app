@@ -180,13 +180,13 @@ int main(int argc, char *argv[])
             {
                 // Envoyer la commande /QUIT au serveur ou à une adresse
                 // spécifique
-                struct sockaddr_in6 server_quit_addr = {0};
-                server_quit_addr.sin6_family = AF_INET6;
-                server_quit_addr.sin6_port = PORT(portNumber);
+                struct sockaddr_in6 servQuitAddr = {0};
+                servQuitAddr.sin6_family = AF_INET6;
+                servQuitAddr.sin6_port = PORT(portNumber);
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&server_quit_addr,
-                             sizeof(server_quit_addr)));
+                             (struct sockaddr *)&servQuitAddr,
+                             sizeof(servQuitAddr)));
 
                 running = 0; // Quit the loop upon /QUIT command
             }
