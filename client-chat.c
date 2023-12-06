@@ -86,10 +86,10 @@ int main(int argc, char *argv[])
     CHECK(setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &value, sizeof value));
 
     /* set local addr */
-    struct sockaddr_in6 server_addr = {0};
-    server_addr.sin6_family = AF_INET6;
-    server_addr.sin6_port = PORT(portNumber);
-    server_addr.sin6_addr = in6addr_any; // On utilise toutes les addresses disponibles.
+    struct sockaddr_in6 serverAddr = {0};
+    serverAddr.sin6_family = AF_INET6;
+    serverAddr.sin6_port = PORT(portNumber);
+    serverAddr.sin6_addr = in6addr_any; // On utilise toutes les addresses disponibles.
 
     struct sockaddr_storage clientStorage;
     socklen_t clientLen = sizeof(clientStorage);
@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     char buffer[MAX_MSG_LEN];
     /* check if a client is already present */
     /* We bind the socket to the port number passed*/
-    if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof server_addr) < 0)
+    if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof serverAddr) < 0)
     {
         if (errno == EADDRINUSE)
         {
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            struct sockaddr_in6 existingUserAddr = server_addr; // Store existing user address
+            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address
             CHECK(sendto(sockfd, "/HELO", 5, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
@@ -202,8 +202,8 @@ int main(int argc, char *argv[])
             {
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&server_addr,
-                             sizeof(server_addr)));
+                             (struct sockaddr *)&serverAddr,
+                             sizeof(serverAddr)));
             }
         }
 
