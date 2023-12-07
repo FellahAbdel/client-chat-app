@@ -42,7 +42,7 @@ void usage(char *programName)
 int main(int argc, char *argv[])
 {
     int sockfd;
-    int status;
+    // int status;
     ssize_t bytesRecv;
     char host[NI_MAXHOST];
     char service[NI_MAXSERV];
@@ -57,19 +57,6 @@ int main(int argc, char *argv[])
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
-
-    /* Initiate structure*/
-    struct addrinfo *serverInfo;
-    struct addrinfo hints = {0};
-    hints.ai_addr = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE | AI_V4MAPPED;
-
-    if ((status = getaddrinfo(NULL, argv[1], &hints, &serverInfo)) != 0)
-    {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-        exit(EXIT_FAILURE);
-    }
 
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
@@ -99,6 +86,7 @@ int main(int argc, char *argv[])
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
+            printf("I'm a client sending /HELO to the server to initiate a connection.\n");
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address
             CHECK(sendto(sockfd, "/HELO", 5, 0,
                          (struct sockaddr *)&existingUserAddr,
@@ -112,6 +100,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+        printf("I'm the program server, waiting for connection...\n");
         /*
         Event: recv / HELO
         Action : print remote addr and port
@@ -170,6 +159,12 @@ int main(int argc, char *argv[])
 
         if (fds[0].revents & POLLIN)
         {
+            // Envoyer la commande /QUIT au serveur ou à une adresse
+            // spécifique
+            struct sockaddr_in6 servQuitAddr = {0};
+            servQuitAddr.sin6_family = AF_INET6;
+            servQuitAddr.sin6_port = PORT(atoi(service));
+
             // memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
@@ -177,11 +172,6 @@ int main(int argc, char *argv[])
             // Implement sending logic here using sendto()
             if (strncmp(message, "/QUIT", 5) == 0)
             {
-                // Envoyer la commande /QUIT au serveur ou à une adresse
-                // spécifique
-                struct sockaddr_in6 servQuitAddr = {0};
-                servQuitAddr.sin6_family = AF_INET6;
-                servQuitAddr.sin6_port = PORT(portNumber);
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              (struct sockaddr *)&servQuitAddr,
@@ -193,9 +183,10 @@ int main(int argc, char *argv[])
             {
                 // Envoi de message au client déjà connecté en utilisant
                 // l'adresse du server existant.
+                printf("Sending from here... ");
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&serverAddr,
-                             sizeof(serverAddr)));
+                             (struct sockaddr *)&servQuitAddr,
+                             sizeof(servQuitAddr)));
             }
         }
 
@@ -218,6 +209,7 @@ int main(int argc, char *argv[])
                 {
                     // Action print DATA
                     // printf("REC from the socket\n");
+                    printf("Received from sock...  : ");
                     printf("%s", message);
                 }
             }
@@ -228,7 +220,5 @@ int main(int argc, char *argv[])
     CHECK(close(sockfd));
 
     /* free memory */
-    freeaddrinfo(serverInfo);
-
     return 0;
 }
