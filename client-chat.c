@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
     int sockfd;
     int status;
     ssize_t bytesRecv;
+    char host[NI_MAXHOST];
+    char service[NI_MAXSERV];
     // int bindResult;
 
     /* test arg number */
@@ -127,9 +129,6 @@ int main(int argc, char *argv[])
             // Check if the received message is "/HELO"
             if (strncmp(buffer, "/HELO", 5) == 0)
             {
-                char host[NI_MAXHOST];
-                char service[NI_MAXSERV];
-
                 int result = getnameinfo((struct sockaddr *)&clientStorage,
                                          clientLen, host, NI_MAXHOST, service,
                                          NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV);
