@@ -160,11 +160,7 @@ int main(int argc, char *argv[])
         {
             // Envoyer la commande /QUIT au serveur ou à une adresse
             // spécifique
-            struct sockaddr_in6 servQuitAddr = {0};
-            servQuitAddr.sin6_family = AF_INET6;
-            servQuitAddr.sin6_port = PORT(atoi(service));
 
-            // memset(message, 0, MAX_MSG_LEN);
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
@@ -173,8 +169,8 @@ int main(int argc, char *argv[])
             {
 
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&servQuitAddr,
-                             sizeof(servQuitAddr)));
+                             (struct sockaddr *)&clientStorage,
+                             clientLen));
 
                 running = 0; // Quit the loop upon /QUIT command
             }
@@ -182,10 +178,10 @@ int main(int argc, char *argv[])
             {
                 // Envoi de message au client déjà connecté en utilisant
                 // l'adresse du server existant.
-                printf("Sending from here... ");
+                // printf("Sending from here... ");
                 CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&servQuitAddr,
-                             sizeof(servQuitAddr)));
+                             (struct sockaddr *)&clientStorage,
+                             clientLen));
             }
         }
 
@@ -208,7 +204,7 @@ int main(int argc, char *argv[])
                 {
                     // Action print DATA
                     // printf("REC from the socket\n");
-                    printf("Received from sock...  : ");
+                    // printf("Received from sock...  : ");
                     printf("%s", message);
                 }
             }
