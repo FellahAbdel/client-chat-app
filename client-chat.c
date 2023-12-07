@@ -37,6 +37,28 @@ void usage(char *programName)
     exit(EXIT_FAILURE);
 }
 
+#ifdef BIN
+
+// Structure representing the binary message
+struct BinaryMessage
+{
+    uint8_t messageType;
+};
+
+// Function to send a binary message for /HELO or /QUIT
+void sendBinaryMessage(int sockfd, uint8_t messageType,
+                       struct sockaddr *destAddr, socklen_t destAddrLen)
+{
+    struct BinaryMessage binaryMsgToSend;
+    binaryMsgToSend.messageType = messageType;
+
+    // Sending the encoded binary message over UDP using sendto
+    sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage), 0,
+           destAddr, destAddrLen);
+}
+
+#endif
+
 #define MAX_MSG_LEN 1024
 
 int main(int argc, char *argv[])
