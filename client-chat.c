@@ -42,7 +42,7 @@ void usage(char *programName)
 // Structure representing the binary message
 struct BinaryMessage
 {
-    uint8_t messageType;
+    uint8_t messageType; // That's a 8-bit int (1 byte).
 };
 
 #endif
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in6 serverAddr = {0};
     serverAddr.sin6_family = AF_INET6;
     serverAddr.sin6_port = PORT(portNumber);
-    serverAddr.sin6_addr = in6addr_any; // On utilise toutes les addresses disponibles.
+    serverAddr.sin6_addr = in6addr_any; // use my IPv6 address.
 
     struct sockaddr_storage clientStorage;
     socklen_t clientLen = sizeof(clientStorage);
@@ -220,7 +220,6 @@ int main(int argc, char *argv[])
             // Implement sending logic here using sendto()
             if (strncmp(message, "/QUIT", 5) == 0)
             {
-
                 CHECK(sendto(sockfd, message, strlen(message), 0,
                              (struct sockaddr *)&clientStorage,
                              clientLen));
