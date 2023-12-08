@@ -90,8 +90,6 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
 int main(int argc, char *argv[])
 {
     int sockfd;
-    int status;
-    (void)status;
     ssize_t bytesRecv;
     char host[NI_MAXHOST];
     char service[NI_MAXSERV];
@@ -138,7 +136,8 @@ int main(int argc, char *argv[])
             // Sending /HELO to the existing user occupying the port
             printf("I'm a client sending /HELO to the server to initiate a connection\n");
 #ifdef BIN
-            sendBinaryMessage(sockfd, 0x01, (struct sockaddr *)&serverAddr, sizeof serverAddr);
+            sendBinaryMessage(sockfd, 0x01, (struct sockaddr *)&serverAddr,
+                              sizeof serverAddr);
             printf("Send binary msg\n");
 #else
             printf("here without bin.\n");
