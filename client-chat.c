@@ -45,29 +45,6 @@ struct BinaryMessage
     uint8_t messageType;
 };
 
-// Function to send a binary message for /HELO or /QUIT
-void sendBinaryMessage(int sockfd, uint8_t messageType,
-                       struct sockaddr *destAddr, socklen_t destAddrLen)
-{
-    struct BinaryMessage binaryMsgToSend;
-    binaryMsgToSend.messageType = messageType;
-
-    // Sending the encoded binary message over UDP using sendto
-    CHECK(sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage), 0,
-                 destAddr, destAddrLen));
-}
-
-// Function to receive a binary message
-int receiveBinaryMessage(int sockfd, struct BinaryMessage *binaryMsg,
-                         struct sockaddr *clientAddr, socklen_t *clientLen)
-{
-    ssize_t bytesRecv;
-    CHECK(bytesRecv = recvfrom(sockfd, binaryMsg, sizeof(struct BinaryMessage), 0,
-                               clientAddr, clientLen));
-
-    return bytesRecv;
-}
-
 #endif
 
 void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
@@ -85,6 +62,7 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
 
     printf("%s %s\n", hostNameIP, portNumber);
 }
+
 #define MAX_MSG_LEN 1024
 
 int main(int argc, char *argv[])
@@ -135,13 +113,18 @@ int main(int argc, char *argv[])
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
             printf("I'm a client sending /HELO to the server to initiate a connection\n");
+            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
 #ifdef BIN
-            sendBinaryMessage(sockfd, 0x01, (struct sockaddr *)&serverAddr,
-                              sizeof serverAddr);
+            //* Sending /HELO : 0x01 message.
+            struct BinaryMessage binaryMsgToSend;
+            binaryMsgToSend.messageType = 0x01;
+
+            CHECK(sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage),
+                         0, (struct sockaddr *)&existingUserAddr,
+                         sizeof existingUserAddr));
             printf("Send binary msg\n");
 #else
             printf("here without bin.\n");
-            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
             CHECK(sendto(sockfd, "/HELO", 5, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
@@ -166,9 +149,10 @@ int main(int argc, char *argv[])
         {
 #ifdef BIN
             struct BinaryMessage receivedBinaryMsg;
-            bytesRecv = receiveBinaryMessage(sockfd, &receivedBinaryMsg,
-                                             (struct sockaddr *)&clientStorage,
-                                             &clientLen);
+
+            bytesRecv = recvfrom(sockfd, &receivedBinaryMsg,
+                                 sizeof(struct BinaryMessage), 0,
+                                 (struct sockaddr *)&clientStorage, &clientLen);
             if (bytesRecv > 0)
             {
                 if (receivedBinaryMsg.messageType == 0x01)
