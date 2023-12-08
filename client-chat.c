@@ -148,22 +148,26 @@ int main(int argc, char *argv[])
         while (waiting)
         {
 #ifdef BIN
+            // To store the binary message.
             struct BinaryMessage receivedBinaryMsg;
 
-            bytesRecv = recvfrom(sockfd, &receivedBinaryMsg,
-                                 sizeof(struct BinaryMessage), 0,
-                                 (struct sockaddr *)&clientStorage, &clientLen);
-            if (bytesRecv > 0)
+            CHECK(bytesRecv = recvfrom(sockfd, &receivedBinaryMsg,
+                                       sizeof(struct BinaryMessage), 0,
+                                       (struct sockaddr *)&clientStorage,
+                                       &clientLen));
+
+            // The message is well received, if it's the /HELO == 0x01
+            if (receivedBinaryMsg.messageType == 0x01)
             {
-                if (receivedBinaryMsg.messageType == 0x01)
-                {
-                    displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
-                                      host, service);
-                    waiting = 0;
-                }
+                // Then we display the client information.
+                displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
+                                  host, service);
+                waiting = 0; // We stop waiting.
             }
+
             printf("Received binary msg.\n");
 #else
+            // Receiving plaint text message.
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
@@ -173,9 +177,10 @@ int main(int argc, char *argv[])
             // Check if the received message is "/HELO"
             if (strncmp(buffer, "/HELO", 5) == 0)
             {
+                // Then we display the client information.
                 displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
                                   host, service);
-                waiting = 0;
+                waiting = 0; // we stop waiting.
             }
 #endif
             fflush(stdout);
