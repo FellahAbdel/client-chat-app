@@ -70,12 +70,28 @@ int receiveBinaryMessage(int sockfd, struct BinaryMessage *binaryMsg,
 
 #endif
 
+void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
+                       char *hostNameIP, char *portNumber)
+{
+    int status;
+
+    if ((status = getnameinfo(clientAddr, *clientLen, hostNameIP, NI_MAXHOST,
+                              portNumber, NI_MAXSERV,
+                              NI_NUMERICHOST | NI_NUMERICSERV)) != 0)
+    {
+        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%s %s\n", hostNameIP, portNumber);
+}
 #define MAX_MSG_LEN 1024
 
 int main(int argc, char *argv[])
 {
     int sockfd;
     int status;
+    (void)status;
     ssize_t bytesRecv;
     char host[NI_MAXHOST];
     char service[NI_MAXSERV];
@@ -158,18 +174,9 @@ int main(int argc, char *argv[])
             {
                 if (receivedBinaryMsg.messageType == 0x01)
                 {
-                    if ((status = getnameinfo((struct sockaddr *)&clientStorage,
-                                              clientLen, host, NI_MAXHOST, service,
-                                              NI_MAXSERV,
-                                              NI_NUMERICHOST | NI_NUMERICSERV)) != 0)
-                    {
-                        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
-                    }
-                    else
-                    {
-                        printf("%s %s", host, service);
-                        waiting = 0;
-                    }
+                    displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
+                                      host, service);
+                    waiting = 0;
                 }
             }
             printf("Received binary msg.\n");
@@ -183,17 +190,9 @@ int main(int argc, char *argv[])
             // Check if the received message is "/HELO"
             if (strncmp(buffer, "/HELO", 5) == 0)
             {
-                if ((status = getnameinfo((struct sockaddr *)&clientStorage,
-                                          clientLen, host, NI_MAXHOST, service,
-                                          NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV)) != 0)
-                {
-                    fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
-                }
-                else
-                {
-                    printf("%s %s", host, service);
-                    waiting = 0;
-                }
+                displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
+                                  host, service);
+                waiting = 0;
             }
 #endif
             fflush(stdout);
