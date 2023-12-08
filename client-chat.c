@@ -53,8 +53,19 @@ void sendBinaryMessage(int sockfd, uint8_t messageType,
     binaryMsgToSend.messageType = messageType;
 
     // Sending the encoded binary message over UDP using sendto
-    sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage), 0,
-           destAddr, destAddrLen);
+    CHECK(sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage), 0,
+                 destAddr, destAddrLen));
+}
+
+// Function to receive a binary message
+int receiveBinaryMessage(int sockfd, struct BinaryMessage *binaryMsg,
+                         struct sockaddr *clientAddr, socklen_t *clientLen)
+{
+    ssize_t bytesRecv;
+    CHECK(bytesRecv = recvfrom(sockfd, binaryMsg, sizeof(struct BinaryMessage), 0,
+                               clientAddr, clientLen));
+
+    return bytesRecv;
 }
 
 #endif
@@ -98,6 +109,7 @@ int main(int argc, char *argv[])
     socklen_t clientLen = sizeof(clientStorage);
 
     char buffer[MAX_MSG_LEN];
+    (void)buffer;
     /* check if a client is already present */
     /* We bind the socket to the port number passed*/
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof serverAddr) < 0)
@@ -108,11 +120,17 @@ int main(int argc, char *argv[])
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            printf("I'm a client sending /HELO to the server to initiate a connection.\n");
-            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address
+            printf("I'm a client sending /HELO to the server to initiate a connection\n");
+#ifdef BIN
+            sendBinaryMessage(sockfd, 0x01, (struct sockaddr *)&serverAddr, sizeof serverAddr);
+            printf("Send binary msg\n");
+#else
+            printf("here without bin.\n");
+            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
             CHECK(sendto(sockfd, "/HELO", 5, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
+#endif
         }
         else
         {
@@ -131,6 +149,31 @@ int main(int argc, char *argv[])
         // printf("Waiting...\n");
         while (waiting)
         {
+#ifdef BIN
+            struct BinaryMessage receivedBinaryMsg;
+            bytesRecv = receiveBinaryMessage(sockfd, &receivedBinaryMsg,
+                                             (struct sockaddr *)&clientStorage,
+                                             &clientLen);
+            if (bytesRecv > 0)
+            {
+                if (receivedBinaryMsg.messageType == 0x01)
+                {
+                    if ((status = getnameinfo((struct sockaddr *)&clientStorage,
+                                              clientLen, host, NI_MAXHOST, service,
+                                              NI_MAXSERV,
+                                              NI_NUMERICHOST | NI_NUMERICSERV)) != 0)
+                    {
+                        fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
+                    }
+                    else
+                    {
+                        printf("%s %s", host, service);
+                        waiting = 0;
+                    }
+                }
+            }
+            printf("Received binary msg.\n");
+#else
             CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
@@ -152,6 +195,7 @@ int main(int argc, char *argv[])
                     waiting = 0;
                 }
             }
+#endif
             fflush(stdout);
         }
     }
