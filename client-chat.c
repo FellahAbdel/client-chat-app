@@ -213,6 +213,7 @@ int main(int argc, char *argv[])
         int activity;
         CHECK(activity = poll(fds, 2, -1)); // -1 une attente indéfini.
 
+        // Waiting an event from the keyboard.
         if (fds[0].revents & POLLIN)
         {
             // Envoyer la commande /QUIT au serveur ou à une adresse
@@ -225,42 +226,32 @@ int main(int argc, char *argv[])
             // Envoi de message au client déjà connecté en utilisant
             // l'adresse du server existant.
             // printf("Sending from here... ");
-            void *messageOrBinary = NULL;
-            size_t len = 0;
+            // void *messageOrBinary = NULL;
+            // size_t len = 0;
 
             // We load the data to transmit.
 #ifdef BIN
             // if it's a "/QUIT" command then we used binary form.
             if (strncmp(message, "/QUIT", 5) == 0)
             {
-                // We only send QUIT command in binary form.
-                struct BinaryMessage quitBinaryMsg;
-                quitBinaryMsg.messageType = 0x02;
-                len = sizeof(struct BinaryMessage);
-
-                messageOrBinary = &quitBinaryMsg;
+                // We only send QUIT command in binary form which is one byte.
+                message[0] = 0x02;
+                message[1] = '\0'; // nul terminate byte.
             }
-            else
-            {
-                // Other message is as it is.
-                messageOrBinary = message;
-                len = strlen(message);
-            }
-#else
-            // Other message and /QUIT command stay as it is.
-            messageOrBinary = message;
-            len = strlen(message);
-
 #endif
 
             // And Then we transmit the data.
-            CHECK(sendto(sockfd, messageOrBinary, len, 0,
+            CHECK(sendto(sockfd, message, strlen(message), 0,
                          (struct sockaddr *)&clientStorage,
                          clientLen));
-
+#ifdef BIN
+            running = !(message[0] == 0x02);
+#else
             running = !(strncmp(message, "/QUIT", 5) == 0);
+#endif
         }
 
+        // Wainting an event from the socket.
         if (fds[1].revents & POLLIN)
         {
             CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
@@ -269,6 +260,18 @@ int main(int argc, char *argv[])
 
             // A message is well received.
             message[bytesRecv] = '\0';
+
+#ifdef BIN
+            if (message[0] == 0x02)
+            {
+                running = 0;
+            }
+            else
+            {
+                // Action : print DATA.
+                printf("%s", message);
+            }
+#else
 
             // Implement message processing logic here
             if (strncmp(message, "/QUIT", 5) == 0)
@@ -282,6 +285,8 @@ int main(int argc, char *argv[])
                 // printf("Received from sock...  : ");
                 printf("%s", message);
             }
+
+#endif
         }
     }
 
