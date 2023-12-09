@@ -172,15 +172,19 @@ int main(int argc, char *argv[])
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
 
-            buffer[bytesRecv] = '\0'; // Null-terminate the received message
-            // printf("%s\n", buffer);
-            // Check if the received message is "/HELO"
-            if (strncmp(buffer, "/HELO", 5) == 0)
+            // We received at least 1 byte.
+            if (bytesRecv > 0)
             {
-                // Then we display the client information.
-                displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
-                                  host, service);
-                waiting = 0; // we stop waiting.
+                buffer[bytesRecv] = '\0'; // Null-terminate the received message
+                // printf("%s\n", buffer);
+                // Check if the received message is "/HELO"
+                if (strncmp(buffer, "/HELO", 5) == 0)
+                {
+                    // Then we display the client information.
+                    displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
+                                      host, service);
+                    waiting = 0; // we stop waiting.
+                }
             }
 #endif
             fflush(stdout);
@@ -218,23 +222,14 @@ int main(int argc, char *argv[])
             // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
-            if (strncmp(message, "/QUIT", 5) == 0)
-            {
-                CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&clientStorage,
-                             clientLen));
+            // Envoi de message au client déjà connecté en utilisant
+            // l'adresse du server existant.
+            // printf("Sending from here... ");
+            CHECK(sendto(sockfd, message, strlen(message), 0,
+                         (struct sockaddr *)&clientStorage,
+                         clientLen));
 
-                running = 0; // Quit the loop upon /QUIT command
-            }
-            else
-            {
-                // Envoi de message au client déjà connecté en utilisant
-                // l'adresse du server existant.
-                // printf("Sending from here... ");
-                CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&clientStorage,
-                             clientLen));
-            }
+            running = !(strncmp(message, "/QUIT", 5) == 0);
         }
 
         if (fds[1].revents & POLLIN)
@@ -243,22 +238,20 @@ int main(int argc, char *argv[])
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
 
-            if (bytesRecv > 0)
-            {
-                message[bytesRecv] = '\0';
+            // A message is well received.
+            message[bytesRecv] = '\0';
 
-                // Implement message processing logic here
-                if (strncmp(message, "/QUIT", 5) == 0)
-                {
-                    running = 0;
-                }
-                else
-                {
-                    // Action print DATA
-                    // printf("REC from the socket\n");
-                    // printf("Received from sock...  : ");
-                    printf("%s", message);
-                }
+            // Implement message processing logic here
+            if (strncmp(message, "/QUIT", 5) == 0)
+            {
+                running = 0;
+            }
+            else
+            {
+                // Action print DATA
+                // printf("REC from the socket\n");
+                // printf("Received from sock...  : ");
+                printf("%s", message);
             }
         }
     }
