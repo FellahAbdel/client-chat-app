@@ -165,24 +165,15 @@ int main(int argc, char *argv[])
             // printf("Sending: %s", message);
 
             // Implement sending logic here using sendto()
-            if (strncmp(message, "/QUIT", 5) == 0)
-            {
+            // Envoi de message au client déjà connecté en utilisant
+            // l'adresse du server existant.
+            // printf("Sending from here... ");
+            CHECK(sendto(sockfd, message, strlen(message), 0,
+                         (struct sockaddr *)&clientStorage,
+                         clientLen));
 
-                CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&clientStorage,
-                             clientLen));
-
-                running = 0; // Quit the loop upon /QUIT command
-            }
-            else
-            {
-                // Envoi de message au client déjà connecté en utilisant
-                // l'adresse du server existant.
-                // printf("Sending from here... ");
-                CHECK(sendto(sockfd, message, strlen(message), 0,
-                             (struct sockaddr *)&clientStorage,
-                             clientLen));
-            }
+            // Quit the loop upon /QUIT command
+            running = !(strncmp(message, "/QUIT", 5) == 0);
         }
 
         if (fds[1].revents & POLLIN)
