@@ -225,7 +225,36 @@ int main(int argc, char *argv[])
             // Envoi de message au client déjà connecté en utilisant
             // l'adresse du server existant.
             // printf("Sending from here... ");
-            CHECK(sendto(sockfd, message, strlen(message), 0,
+            void *messageOrBinary = NULL;
+            size_t len = 0;
+
+            // We load the data to transmit.
+#ifdef BIN
+            // if it's a "/QUIT" command then we used binary form.
+            if (strncmp(message, "/QUIT", 5) == 0)
+            {
+                // We only send QUIT command in binary form.
+                struct BinaryMessage quitBinaryMsg;
+                quitBinaryMsg.messageType = 0x02;
+                len = sizeof(struct BinaryMessage);
+
+                messageOrBinary = &quitBinaryMsg;
+            }
+            else
+            {
+                // Other message is as it is.
+                messageOrBinary = message;
+                len = strlen(message);
+            }
+#else
+            // Other message and /QUIT command stay as it is.
+            messageOrBinary = message;
+            len = strlen(message);
+
+#endif
+
+            // And Then we transmit the data.
+            CHECK(sendto(sockfd, messageOrBinary, len, 0,
                          (struct sockaddr *)&clientStorage,
                          clientLen));
 
