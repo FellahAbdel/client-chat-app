@@ -75,9 +75,9 @@ int main(int argc, char *argv[])
     struct sockaddr_storage clientStorage;
     socklen_t clientLen = sizeof(clientStorage);
 
-    char buffer[MAX_MSG_LEN];
     /* check if a client is already present */
     /* We bind the socket to the port number passed*/
+    char buffer[MAX_MSG_LEN] = {0};
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof serverAddr) < 0)
     {
         if (errno == EADDRINUSE)
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            printf("I'm a client sending /HELO to the server to initiate a connection.\n");
+            // printf("I'm a client sending /HELO to the server to initiate a connection.\n");
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address
             CHECK(sendto(sockfd, "/HELO", 5, 0,
                          (struct sockaddr *)&existingUserAddr,
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("I'm the program server, waiting for connection...\n");
+        // printf("I'm the program server, waiting for connection...\n");
         /*
         Event: recv / HELO
         Action : print remote addr and port
