@@ -123,12 +123,11 @@ int main(int argc, char *argv[])
                                           NI_MAXSERV, NI_NUMERICHOST | NI_NUMERICSERV)) != 0)
                 {
                     fprintf(stderr, "getnameinfo: %s\n", gai_strerror(status));
+                    exit(EXIT_FAILURE);
                 }
-                else
-                {
-                    printf("%s %s", host, service);
-                    waiting = 0;
-                }
+
+                printf("%s %s\n", host, service);
+                waiting = 0;
             }
             fflush(stdout);
         }
