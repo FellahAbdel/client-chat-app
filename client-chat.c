@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <stdnoreturn.h>
 
 #define CHECK(op)               \
     do                          \
@@ -19,6 +20,19 @@
             exit(EXIT_FAILURE); \
         }                       \
     } while (0)
+
+#define CHKN(op)          \
+    do                    \
+    {                     \
+        if ((op) == NULL) \
+            raler(#op);   \
+    } while (0)
+
+noreturn void raler(const char *msg)
+{
+    perror(msg);
+    exit(1);
+}
 
 #define PORT(p) htons(p)
 
@@ -58,6 +72,7 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
     }
 
     printf("%s %s\n", hostNameIP, portNumber);
+    fflush(stdout);
 }
 
 #define MAX_MSG_LEN 1024
@@ -142,46 +157,56 @@ int main(int argc, char *argv[])
         // printf("Waiting...\n");
         while (waiting)
         {
+            void *genericPtr = NULL;
+
+            // Allocate memory based on whether BIN is defined or not
 #ifdef BIN
-            // To store the binary message.
-            uint8_t binBuff[1];
+            // Allocate memory for uint8_t buffer
+            uint8_t *binBuff;
+            CHKN(binBuff = malloc(sizeof(uint8_t)));
 
-            CHECK(bytesRecv = recvfrom(sockfd, binBuff,
-                                       1, 0, (struct sockaddr *)&clientStorage,
+            // Set genericPtr to point to binBuff
+            genericPtr = (void *)binBuff;
+#else
+            // Allocate memory for char buffer
+            char *receivedText;
+            CHKN(receivedText = malloc(MAX_MSG_LEN));
+
+            // Set genericPtr to point to receivedText
+            genericPtr = (void *)receivedText;
+
+#endif
+            CHECK(bytesRecv = recvfrom(sockfd, genericPtr, MAX_MSG_LEN - 1, 0,
+                                       (struct sockaddr *)&clientStorage,
                                        &clientLen));
-
-            // The message is well received, if it's the /HELO == 0x01
-            if (binBuff[0] == HELO)
+#ifdef BIN
+            if (*(uint8_t *)genericPtr == HELO)
             {
-                // Then we display the client information.
                 displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
                                   host, service);
-                waiting = 0; // We stop waiting.
+                waiting = 0; // Stop waiting
             }
 
             printf("Received binary msg.\n");
-#else
-            // Receiving plaint text message.
-            CHECK(bytesRecv = recvfrom(sockfd, buffer, MAX_MSG_LEN - 1, 0,
-                                       (struct sockaddr *)&clientStorage,
-                                       &clientLen));
-
-            // We received at least 1 byte.
-            if (bytesRecv > 0)
-            {
-                buffer[bytesRecv] = '\0'; // Null-terminate the received message
-                // printf("%s\n", buffer);
-                // Check if the received message is "/HELO"
-                if (strncmp(buffer, "/HELO", 5) == 0)
-                {
-                    // Then we display the client information.
-                    displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
-                                      host, service);
-                    waiting = 0; // we stop waiting.
-                }
-            }
-#endif
             fflush(stdout);
+
+            free(genericPtr); // Free allocated memory
+#else
+            // A message is well received.
+            ((char *)genericPtr)[bytesRecv] = '\0'; // Null-terminate the
+                                                    // received message
+
+            // Check if the received message is "/HELO"
+            if (strncmp((char *)genericPtr, "/HELO", 5) == 0)
+            {
+                // We display client information.
+                displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
+                                  host, service);
+                waiting = 0; // Stop waiting
+            }
+
+            free(genericPtr); // Free allocated memory
+#endif
         }
     }
 
