@@ -231,8 +231,10 @@ int main(int argc, char *argv[])
                          (struct sockaddr *)&clientStorage,
                          clientLen));
 #ifdef BIN
+            // running is 0 if message is equal to QUIT, so we quit the loop.
             running = !(message[0] == QUIT);
 #else
+            // Same here folks.
             running = !(strncmp(message, "/QUIT", 5) == 0);
 #endif
         }
@@ -248,15 +250,9 @@ int main(int argc, char *argv[])
             message[bytesRecv] = '\0';
 
 #ifdef BIN
-            if (message[0] == QUIT)
-            {
-                running = 0;
-            }
-            else
-            {
-                // Action : print DATA.
-                printf("%s", message);
-            }
+            // if message is QUIT we quit the loop else print the received the
+            // received message.
+            message[0] == QUIT ? running = 0 : printf("%s", message);
 #else
 
             // Implement message processing logic here
