@@ -39,8 +39,8 @@ void usage(char *programName)
 
 #ifdef BIN
 
-#define HELO ((uint8_t)0x01)
-#define QUIT ((uint8_t)0x02)
+#define HELO ((uint8_t)0x01) // 1 octet pour HELO au lieu de 5 octets.
+#define QUIT ((uint8_t)0x02) // 1 octet pour QUIT au lieu de 5 octets.
 
 #endif
 
@@ -111,14 +111,15 @@ int main(int argc, char *argv[])
             // Sending /HELO to the existing user occupying the port
             printf("I'm a client sending /HELO to the server to initiate a connection\n");
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
+            size_t size;
 #ifdef BIN
             u_int8_t binBuff[1] = {HELO};
             const void *buff = binBuff;
-            size_t size = sizeof(binBuff);
+            size = 1; // 1 octet.
 #else
             const char *messageBuff = "/HELO";
             const void *buff = messageBuff;
-            size_t size = strlen(messageBuff);
+            size = 5; // 5 caractères
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
