@@ -216,20 +216,13 @@ int main(int argc, char *argv[])
             fgets(message, MAX_MSG_LEN, stdin);
             // printf("Sending: %s", message);
 
-            // Implement sending logic here using sendto()
-            // Envoi de message au client déjà connecté en utilisant
-            // l'adresse du server existant.
-            // printf("Sending from here... ");
-            // void *messageOrBinary = NULL;
-            // size_t len = 0;
-
             // We load the data to transmit.
 #ifdef BIN
             // if it's a "/QUIT" command then we used binary form.
             if (strncmp(message, "/QUIT", 5) == 0)
             {
                 // We only send QUIT command in binary form which is one byte.
-                message[0] = 0x02;
+                message[0] = QUIT;
                 message[1] = '\0'; // nul terminate byte.
             }
 #endif
@@ -239,7 +232,7 @@ int main(int argc, char *argv[])
                          (struct sockaddr *)&clientStorage,
                          clientLen));
 #ifdef BIN
-            running = !(message[0] == 0x02);
+            running = !(message[0] == QUIT);
 #else
             running = !(strncmp(message, "/QUIT", 5) == 0);
 #endif
@@ -256,7 +249,7 @@ int main(int argc, char *argv[])
             message[bytesRecv] = '\0';
 
 #ifdef BIN
-            if (message[0] == 0x02)
+            if (message[0] == QUIT)
             {
                 running = 0;
             }
