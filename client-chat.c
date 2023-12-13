@@ -223,7 +223,6 @@ int main(int argc, char *argv[])
             {
                 // We only send QUIT command in binary form which is one byte.
                 message[0] = QUIT;
-                message[1] = '\0'; // nul terminate byte.
             }
 #endif
 
