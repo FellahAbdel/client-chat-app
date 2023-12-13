@@ -112,19 +112,17 @@ int main(int argc, char *argv[])
             printf("I'm a client sending /HELO to the server to initiate a connection\n");
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
 #ifdef BIN
-            //* Sending /HELO : 0x01 message.
             u_int8_t binBuff[1] = {HELO};
-
-            CHECK(sendto(sockfd, binBuff, 1,
-                         0, (struct sockaddr *)&existingUserAddr,
-                         sizeof existingUserAddr));
-            printf("Send binary msg\n");
+            const void *buff = binBuff;
+            size_t size = sizeof(binBuff);
 #else
-            printf("here without bin.\n");
-            CHECK(sendto(sockfd, "/HELO", 5, 0,
+            const char *messageBuff = "/HELO";
+            const void *buff = messageBuff;
+            size_t size = strlen(messageBuff);
+#endif
+            CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
-#endif
         }
         else
         {
