@@ -39,11 +39,8 @@ void usage(char *programName)
 
 #ifdef BIN
 
-// Structure representing the binary message
-struct BinaryMessage
-{
-    uint8_t messageType; // That's a 8-bit int (1 byte).
-};
+#define HELO ((uint8_t)0x01)
+#define QUIT ((uint8_t)0x02)
 
 #endif
 
@@ -116,10 +113,9 @@ int main(int argc, char *argv[])
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
 #ifdef BIN
             //* Sending /HELO : 0x01 message.
-            struct BinaryMessage binaryMsgToSend;
-            binaryMsgToSend.messageType = 0x01;
+            u_int8_t binBuff[1] = {HELO};
 
-            CHECK(sendto(sockfd, &binaryMsgToSend, sizeof(struct BinaryMessage),
+            CHECK(sendto(sockfd, binBuff, 1,
                          0, (struct sockaddr *)&existingUserAddr,
                          sizeof existingUserAddr));
             printf("Send binary msg\n");
@@ -149,15 +145,14 @@ int main(int argc, char *argv[])
         {
 #ifdef BIN
             // To store the binary message.
-            struct BinaryMessage receivedBinaryMsg;
+            uint8_t binBuff[1];
 
-            CHECK(bytesRecv = recvfrom(sockfd, &receivedBinaryMsg,
-                                       sizeof(struct BinaryMessage), 0,
-                                       (struct sockaddr *)&clientStorage,
+            CHECK(bytesRecv = recvfrom(sockfd, binBuff,
+                                       1, 0, (struct sockaddr *)&clientStorage,
                                        &clientLen));
 
             // The message is well received, if it's the /HELO == 0x01
-            if (receivedBinaryMsg.messageType == 0x01)
+            if (binBuff[0] == HELO)
             {
                 // Then we display the client information.
                 displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
