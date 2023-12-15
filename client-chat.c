@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
             struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
             size_t size;
 #ifdef BIN
-            u_int8_t binBuff[1] = {HELO};
+            uint8_t binBuff[1] = {HELO};
             const void *buff = binBuff;
             size = 1; // 1 octet.
 #else
