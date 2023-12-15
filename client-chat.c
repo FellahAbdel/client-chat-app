@@ -120,12 +120,16 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            // printf("L'adresse IP et le port sont déjà utilisés par un autre processus.\n");
+            // printf("L'adresse IP et le port sont déjà utilisés par un autre"
+            //             "processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            printf("I'm a client sending /HELO to the server to initiate a connection\n");
-            struct sockaddr_in6 existingUserAddr = serverAddr; // Store existing user address otherwise it won't work.
+            printf("I'm a client sending /HELO to the server to initiate a"
+                   "connection\n");
+
+            // Store existing user address otherwise it won't work.
+            struct sockaddr_in6 existingUserAddr = serverAddr;
             size_t size;
 #ifdef BIN
             uint8_t binBuff[1] = {HELO};
