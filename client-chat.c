@@ -75,6 +75,15 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
     fflush(stdout);
 }
 
+#ifdef FILEIO
+void usageFileIO(char *programName)
+{
+    fprintf(stderr, "usage: %s serverName fileName\n", programName);
+    exit(EXIT_FAILURE);
+}
+
+#endif
+
 #define MAX_MSG_LEN 1024
 
 int main(int argc, char *argv[])
@@ -90,6 +99,14 @@ int main(int argc, char *argv[])
     {
         usage(argv[0]);
     }
+
+#ifdef FILEIO
+    if (argc != 3)
+    {
+        usageFileIO(argv[0]);
+        exit(EXIT_FAILURE);
+    }
+#endif
 
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
