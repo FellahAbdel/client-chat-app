@@ -347,16 +347,20 @@ int main(int argc, char *argv[])
                     if (sscanf(message, "/GET %255s", fileName) != 1)
                     {
                         exit(EXIT_FAILURE);
-                    };
+                    }
 
-                    // And finally, we send the file.
-                    sendFile(sockfd, (struct sockaddr *)&clientStorage,
-                             clientLen, fileName);
+                    // We make sure there is something in the buffer.
+                    if (fileName[0] != '\0')
+                    {
+                        // And finally, we send the file.
+                        sendFile(sockfd, (struct sockaddr *)&clientStorage,
+                                 clientLen, fileName);
+                    }
                 }
-#endif
+#endif // FILEIO.
             }
 
-#endif
+#endif // Basic version.
         }
     }
 
