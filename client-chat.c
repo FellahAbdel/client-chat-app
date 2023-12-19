@@ -75,6 +75,8 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
     fflush(stdout);
 }
 
+#define MAX_MSG_LEN 1024
+
 #ifdef FILEIO
 void usageFileIO(char *programName)
 {
@@ -82,9 +84,27 @@ void usageFileIO(char *programName)
     exit(EXIT_FAILURE);
 }
 
-#endif
+void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
+              const char *fileName)
+{
+    FILE *file = fopen(fileName, "rb"); // Ouvrir le fichier en mode lecture binaire ("rb")
+    if (file == NULL)
+    {
+        perror("fopen");
+        return;
+    }
 
-#define MAX_MSG_LEN 1024
+    char buffer[MAX_MSG_LEN];
+    size_t bytesRead;
+
+    while ((bytesRead = fread(buffer, 1, MAX_MSG_LEN, file)) > 0)
+    {
+        CHECK(sendto(sockfd, buffer, bytesRead, 0, clientStorage, clientLen));
+    }
+
+    fclose(file);
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -101,12 +121,16 @@ int main(int argc, char *argv[])
     }
 
 #ifdef FILEIO
-    if (argc != 3)
-    {
-        usageFileIO(argv[0]);
-        exit(EXIT_FAILURE);
-    }
+    char fileName[FILENAME_MAX] = {0};
+
 #endif
+    // #ifdef FILEIO
+    //     if (argc != 3)
+    //     {
+    //         usageFileIO(argv[0]);
+    //         exit(EXIT_FAILURE);
+    //     }
+    // #endif
 
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
@@ -312,6 +336,24 @@ int main(int argc, char *argv[])
                 // printf("REC from the socket\n");
                 // printf("Received from sock...  : ");
                 printf("%s", message);
+
+                // if FILEIO is defined we check if the client is requesting a
+                // file by typing this command /GET fileName.
+#ifdef FILEIO
+                // if it's a get command.
+                if (strncmp(message, "/GET", 4) == 0)
+                {
+                    // then we get the file name from the message.
+                    if (sscanf(message, "/GET %255s", fileName) != 1)
+                    {
+                        exit(EXIT_FAILURE);
+                    };
+
+                    // And finally, we send the file.
+                    sendFile(sockfd, (struct sockaddr *)&clientStorage,
+                             clientLen, fileName);
+                }
+#endif
             }
 
 #endif
