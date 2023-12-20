@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
 
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
+    printf("sock %d\n", sockfd);
 
     /* set dual stack socket */
     // Désactivation de l'option IPV6_V6ONLY pour permettre IPv4 et IPv6
@@ -293,6 +294,7 @@ int main(int argc, char *argv[])
             {
                 // We only send QUIT command in binary form which is one byte.
                 message[0] = QUIT;
+                message[1] = '\0';
             }
 #endif
 
