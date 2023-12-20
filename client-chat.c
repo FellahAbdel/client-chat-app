@@ -92,6 +92,27 @@ struct frame_t
     char data[BUF_SIZE];
 };
 
+void createFilePath(const char *fileName, char option, char *outputPath)
+{
+    const char *directory;
+
+    if (option == 's')
+    {
+        directory = "./serverFiles/";
+    }
+    else
+    {
+        directory = "./clientFiles/";
+    }
+
+    int result = snprintf(outputPath, PATH_MAX, "%s%s", directory, fileName);
+    if (result < 0 || result >= PATH_MAX)
+    {
+        fprintf(stderr, "Error: Failed to create file path or path length exceeded.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
 void usageFileIO(char *programName)
 {
     fprintf(stderr, "usage: %s serverName fileName\n", programName);
@@ -366,10 +387,11 @@ int main(int argc, char *argv[])
                         printf("----> %ld\n", totalFrame);
 
                         // We construct the file path.
-                        int result = snprintf(filePath, sizeof(filePath), "./clientFiles/%s", fileName);
-                        if (result < 0 || result >= PATH_MAX)
-                            exit(EXIT_FAILURE);
-
+                        // int result = snprintf(filePath, sizeof(filePath), "./clientFiles/%s", fileName);
+                        // if (result < 0 || result >= PATH_MAX)
+                        //     exit(EXIT_FAILURE);
+                        memset(filePath, 0, sizeof(filePath));
+                        createFilePath(fileName, 'c', filePath);
                         printf("path : %s\n", filePath);
                         CHKN(fptr = fopen(filePath, "wb")); // open the file in write mode
 
