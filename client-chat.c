@@ -11,6 +11,9 @@
 #include <arpa/inet.h>
 #include <stdnoreturn.h>
 
+#include <sys/stat.h>
+#include <limits.h>
+
 #define CHECK(op)               \
     do                          \
     {                           \
@@ -78,6 +81,17 @@ void displayClientInfo(struct sockaddr *clientAddr, socklen_t *clientLen,
 #define MAX_MSG_LEN 1024
 
 #ifdef FILEIO
+
+#define BUF_SIZE 2048 // Max buffer size of the data in a frame
+
+/*A frame packet with unique id, length and data*/
+struct frame_t
+{
+    long int ID;
+    long int length;
+    char data[BUF_SIZE];
+};
+
 void usageFileIO(char *programName)
 {
     fprintf(stderr, "usage: %s serverName fileName\n", programName);
@@ -121,7 +135,20 @@ int main(int argc, char *argv[])
     }
 
 #ifdef FILEIO
+    char filePath[PATH_MAX];
     char fileName[FILENAME_MAX] = {0};
+    struct timeval t_out = {0, 0};
+    // struct stat st;
+    struct frame_t frame;
+    char ack_send[4] = "ACK";
+
+    ssize_t serverLen = 0;
+    // off_t f_size = 0;
+
+    FILE *fptr;
+
+    /*Clear all the data buffer and structure*/
+    memset(ack_send, 0, sizeof(ack_send));
 
 #endif
     // #ifdef FILEIO
@@ -138,7 +165,6 @@ int main(int argc, char *argv[])
 
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
-    printf("sock %d\n", sockfd);
 
     /* set dual stack socket */
     // Désactivation de l'option IPV6_V6ONLY pour permettre IPv4 et IPv6
@@ -302,6 +328,91 @@ int main(int argc, char *argv[])
             CHECK(sendto(sockfd, message, strlen(message), 0,
                          (struct sockaddr *)&clientStorage,
                          clientLen));
+
+#ifdef FILEIO
+            // The client.
+            if (strncmp(message, "/GET", 4) == 0)
+            {
+                // We get the file name.
+                if (sscanf(message, "/GET %255s", fileName) != 1)
+                    exit(EXIT_FAILURE);
+
+                // We make sure there is something inside.
+                if (fileName[0] != '\0')
+                {
+                    long int totalFrame = 0;
+                    long int bytesRec = 0, i = 0;
+
+                    t_out.tv_sec = 2;
+                    // Enable the timeout option if client does not respond
+                    CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                     (char *)&t_out, sizeof(struct timeval)));
+
+                    // Get the total number of frame to recieve
+                    CHECK(recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0,
+                                   (struct sockaddr *)&serverAddr,
+                                   (socklen_t *)&serverLen));
+
+                    // Disable the timeout option
+                    t_out.tv_sec = 0;
+                    CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                     (char *)&t_out, sizeof(struct timeval)));
+
+                    if (totalFrame > 0)
+                    {
+                        CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame),
+                                     0, (struct sockaddr *)&clientStorage,
+                                     sizeof(clientStorage)));
+                        printf("----> %ld\n", totalFrame);
+
+                        // We construct the file path.
+                        int result = snprintf(filePath, sizeof(filePath), "./clientFiles/%s", fileName);
+                        if (result < 0 || result >= PATH_MAX)
+                            exit(EXIT_FAILURE);
+
+                        printf("path : %s\n", filePath);
+                        CHKN(fptr = fopen(filePath, "wb")); // open the file in write mode
+
+                        /*Recieve all the frames and send the acknowledgement sequentially*/
+                        for (i = 1; i <= totalFrame; i++)
+                        {
+                            memset(&frame, 0, sizeof(frame));
+
+                            // Recieve the frame
+                            CHECK(recvfrom(sockfd, &(frame), sizeof(frame), 0,
+                                           (struct sockaddr *)&serverAddr,
+                                           (socklen_t *)&serverLen));
+
+                            // Send the ack
+                            CHECK(sendto(sockfd, &(frame.ID), sizeof(frame.ID),
+                                         0, (struct sockaddr *)&clientStorage,
+                                         sizeof(clientStorage)));
+
+                            /*Drop the repeated frame*/
+                            if ((frame.ID < i) || (frame.ID > i))
+                                i--;
+                            else
+                            {
+                                fwrite(frame.data, 1, frame.length, fptr); /*Write the recieved data to the file*/
+                                printf("frame.ID ---> %ld	frame.length ---> %ld\n", frame.ID, frame.length);
+                                bytesRec += frame.length;
+                            }
+
+                            if (i == totalFrame)
+                            {
+                                printf("File recieved\n");
+                            }
+                        }
+                        printf("Total bytes recieved ---> %ld\n", bytesRec);
+                        fclose(fptr);
+                    }
+                    else
+                    {
+                        printf("File is empty\n");
+                    }
+                }
+            }
+#endif
 #ifdef BIN
             // running is 0 if message is equal to QUIT, so we quit the loop.
             running = !(message[0] == QUIT);
