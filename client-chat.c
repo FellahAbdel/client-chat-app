@@ -631,12 +631,13 @@ int main(int argc, char *argv[])
                                              (char *)&st_out,
                                              sizeof(struct timeval)));
                         }
+                        else
+                        {
+                            //* File doesn't exist.
+                            printf("invalid Filename.\n");
+                        }
                     }
-                    else
-                    {
-                        //* File doesn't exist.
-                        printf("invalid Filename.\n");
-                    }
+
                 } // end GET command.
 
 #endif // FILEIO.
