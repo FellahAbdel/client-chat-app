@@ -423,9 +423,11 @@ int main(int argc, char *argv[])
                         createFilePath(fileName, 'c', filePathClient);
 
                         printf("path : %s\n", filePathClient);
-                        CHKN(fptr = fopen(filePathClient, "wb")); // open the file in write mode
+                        // open the file in write mode
+                        CHKN(fptr = fopen(filePathClient, "wb"));
 
-                        /*Recieve all the frames and send the acknowledgement sequentially*/
+                        /*Recieve all the frames and send the acknowledgement
+                        sequentially*/
                         for (i = 1; i <= totalFrame; i++)
                         {
                             memset(&frame, 0, sizeof(frame));
@@ -445,7 +447,8 @@ int main(int argc, char *argv[])
                                 i--;
                             else
                             {
-                                fwrite(frame.data, 1, frame.length, fptr); /*Write the recieved data to the file*/
+                                /*Write the recieved data to the file*/
+                                fwrite(frame.data, 1, frame.length, fptr);
                                 printf("frame.ID ---> %ld	frame.length ---> %ld\n", frame.ID, frame.length);
                                 bytesRec += frame.length;
                             }
@@ -535,19 +538,25 @@ int main(int argc, char *argv[])
                             CHECK(stat(filePathServer, &st));
                             fileSize = st.st_size;
 
-                            // Set timeout option for recvfrom
+                            printf("file Size : %ld\n", fileSize);
+
+                            // Set timeout option for recvfrom (2s and 0ms)
                             st_out.tv_sec = 2;
                             st_out.tv_usec = 0;
                             CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
                                              (char *)&st_out,
                                              sizeof(struct timeval)));
 
-                            // open the file to be sent
+                            // open the file in serverFiles dir to be sent
                             CHKN(sfptr = fopen(filePathServer, "rb"));
 
                             if ((fileSize % BUF_SIZE) != 0)
-                                totalFrame = (fileSize / BUF_SIZE) + 1; // Total number of frames to be sent
+                                // Total number of frames to be sent, we need an
+                                // extra frame because fileSize is not divisible
+                                // by BUF_SIZE.
+                                totalFrame = (fileSize / BUF_SIZE) + 1;
                             else
+                                // Divisible, we get the exact frame count.
                                 totalFrame = (fileSize / BUF_SIZE);
 
                             printf("Total number of packets ---> %d\n", totalFrame);
@@ -669,7 +678,7 @@ int main(int argc, char *argv[])
 
 #endif    // Basic version.
         } // END and event occurred from the socket.
-    }
+    }     // END main loop.
 
     /* close socket */
     CHECK(close(sockfd));
