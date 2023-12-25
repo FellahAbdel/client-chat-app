@@ -191,8 +191,7 @@ int main(int argc, char *argv[])
     ssize_t serverLen = 0;
     off_t fileSize = 0;
 
-    struct frame_t sframe; // s for server.
-    (void)sframe;
+    struct frame_t sframe;          // s for server.
     struct timeval st_out = {0, 0}; // same here.
 
     FILE *fptr;
@@ -202,6 +201,8 @@ int main(int argc, char *argv[])
 
     /*Clear all the data buffer and structure*/
     memset(ack_send, 0, sizeof(ack_send));
+
+    int recvResult;
 
 #endif
     // #ifdef FILEIO
@@ -402,9 +403,16 @@ int main(int argc, char *argv[])
                                      (char *)&t_out, sizeof(struct timeval)));
 
                     // Get the total number of frame to recieve
-                    CHECK(recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0,
-                                   (struct sockaddr *)&serverAddr,
-                                   (socklen_t *)&serverLen));
+                    if ((recvResult = recvfrom(sockfd, &(totalFrame),
+                                               sizeof(totalFrame), 0,
+                                               (struct sockaddr *)&serverAddr,
+                                               (socklen_t *)&serverLen)) == -1)
+                    {
+                        if (errno != EAGAIN || errno != EWOULDBLOCK)
+                        {
+                            perror("recvfrom(.., &totalFrame...)");
+                        }
+                    }
 
                     // Disable the timeout option
                     t_out.tv_sec = 0;
@@ -459,7 +467,10 @@ int main(int argc, char *argv[])
                             }
                         }
                         printf("Total bytes recieved ---> %ld\n", bytesRec);
-                        fclose(fptr);
+                        if (fclose(fptr) == EOF)
+                        {
+                            perror("fclose(fptr)");
+                        }
                     }
                     else
                     {
