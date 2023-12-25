@@ -465,7 +465,9 @@ int main(int argc, char *argv[])
                                 {
                                     /*Write the recieved data to the file*/
                                     fwrite(frame.data, 1, frame.length, fptr);
-                                    printf("frame.ID ---> %ld	frame.length ---> %ld\n", frame.ID, frame.length);
+                                    printf("frame.ID ---> %ld	frame.length "
+                                           "-->%ld\n",
+                                           frame.ID, frame.length);
                                     bytesRec += frame.length;
                                 }
 
@@ -474,6 +476,7 @@ int main(int argc, char *argv[])
                                     printf("File recieved\n");
                                 }
                             }
+
                             printf("Total bytes recieved ---> %ld\n", bytesRec);
                             if (fclose(fptr) == EOF)
                             {
@@ -509,21 +512,37 @@ int main(int argc, char *argv[])
                             stat(filePathClient, &st);
                             fileSize = st.st_size; // Size of the file
 
+                            // Set timeout option for recvfrom
                             t_out.tv_sec = 2;
                             t_out.tv_usec = 0;
-                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Set timeout option for recvfrom
+                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                             (char *)&t_out,
+                                             sizeof(struct timeval)));
 
                             // Open the file to be sent
                             CHKN(fptr = fopen(filePathClient, "rb"));
 
                             if ((fileSize % BUF_SIZE) != 0)
-                                totalFrame = (fileSize / BUF_SIZE) + 1; // Total number of frames to be sent
+                                // Total number of frames to be sent
+                                totalFrame = (fileSize / BUF_SIZE) + 1;
                             else
                                 totalFrame = (fileSize / BUF_SIZE);
 
-                            printf("Total number of packets ---> %d	File size --> %ld\n", totalFrame, fileSize);
+                            printf("Total number of packets ---> %d	File size"
+                                   "--> %ld\n",
+                                   totalFrame, fileSize);
 
-                            if ((recvResult = recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen)) == -1)
+                            // Send the number of packets (to be transmitted)
+                            // to reciever
+                            CHECK(sendto(sockfd, &(totalFrame),
+                                         sizeof(totalFrame), 0,
+                                         (struct sockaddr *)&clientStorage,
+                                         clientLen));
+
+                            if ((recvfrom(sockfd, &(sack_num),
+                                          sizeof(sack_num), 0,
+                                          (struct sockaddr *)&serverAddr,
+                                          (socklen_t *)&serverLen)) == -1)
                             {
                                 if (errno != EAGAIN || errno != EWOULDBLOCK)
                                 {
@@ -537,8 +556,14 @@ int main(int argc, char *argv[])
                             while (sack_num != totalFrame)
                             {
                                 /*Keep retrying until ack match*/
-                                CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, clientLen));
-                                CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
+                                CHECK(sendto(sockfd, &(totalFrame),
+                                             sizeof(totalFrame), 0,
+                                             (struct sockaddr *)&clientStorage,
+                                             clientLen));
+
+                                recvfrom(sockfd, &(sack_num), sizeof(sack_num),
+                                         0, (struct sockaddr *)&serverAddr,
+                                         (socklen_t *)&serverLen);
 
                                 resendFrame++;
 
@@ -550,23 +575,41 @@ int main(int argc, char *argv[])
                                 }
                             }
 
-                            /*transmit data frames sequentially followed by an acknowledgement matching*/
+                            /*transmit data frames sequentially followed by an
+                            acknowledgement matching*/
                             for (i = 1; i <= totalFrame; i++)
                             {
                                 memset(&frame, 0, sizeof(frame));
                                 sack_num = 0;
                                 frame.ID = i;
-                                frame.length = fread(frame.data, 1, BUF_SIZE, fptr);
+                                frame.length = fread(frame.data, 1, BUF_SIZE,
+                                                     fptr);
 
-                                CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));                    // send the frame
-                                CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 1, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen)); // Recieve the acknowledgement
+                                CHECK(sendto(sockfd, &(frame), sizeof(frame), 0,
+                                             (struct sockaddr *)&clientStorage,
+                                             clientLen)); // send the frame
+
+                                // Recieve the acknowledgement
+                                CHECK(recvfrom(sockfd, &(sack_num),
+                                               sizeof(sack_num), 1,
+                                               (struct sockaddr *)&serverAddr,
+                                               (socklen_t *)&serverLen));
 
                                 /*Check for the ack match*/
                                 while (sack_num != frame.ID)
                                 {
-                                    CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));
-                                    CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
-                                    printf("frame ---> %ld	dropped, %d times\n", frame.ID, ++dropFrame);
+                                    CHECK(sendto(sockfd, &(frame), sizeof(frame),
+                                                 0,
+                                                 (struct sockaddr *)&clientStorage,
+                                                 clientLen));
+
+                                    CHECK(recvfrom(sockfd, &(sack_num),
+                                                   sizeof(sack_num), 0,
+                                                   (struct sockaddr *)&serverAddr,
+                                                   (socklen_t *)&serverLen));
+
+                                    printf("frame ---> %ld	dropped, %d times\n",
+                                           frame.ID, ++dropFrame);
                                     resendFrame++;
 
                                     /*Enable timeout flag after 200 tries*/
@@ -576,6 +619,7 @@ int main(int argc, char *argv[])
                                         break;
                                     }
                                 }
+
                                 dropFrame = 0;
                                 resendFrame = 0;
 
@@ -586,17 +630,21 @@ int main(int argc, char *argv[])
                                     break;
                                 }
 
-                                printf("frame ----> %ld	Ack ----> %ld\n", i, sack_num);
+                                printf("frame ----> %ld	Ack ----> %ld\n", i,
+                                       sack_num);
 
                                 if (totalFrame == sack_num)
                                     printf("File sent\n");
                             } // END for loop
+
                             fclose(fptr);
 
                             printf("Disable the timeout\n");
                             // Disable timeout
                             t_out.tv_sec = 0;
-                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)));
+                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                             (char *)&t_out,
+                                             sizeof(struct timeval)));
                         } // END file exists.
                     }     // END there is something in the buffer.
                 }         // END PUT case.
@@ -759,11 +807,13 @@ int main(int argc, char *argv[])
                                                    (struct sockaddr *)&clientStorage,
                                                    (socklen_t *)&clientLen));
 
-                                    printf("sframe ---> %ld	dropped, %d times\n", sframe.ID, ++dropFrame);
+                                    printf("sframe ---> %ld	dropped, %d times\n",
+                                           sframe.ID, ++dropFrame);
 
                                     resendFrame++;
 
-                                    printf("sframe ---> %ld	dropped, %d times\n", sframe.ID, dropFrame);
+                                    printf("sframe ---> %ld	dropped, %d times\n",
+                                           sframe.ID, dropFrame);
 
                                     /*Enable the timeout flag even if it fails after 200 tries*/
                                     if (resendFrame == 200)
@@ -783,7 +833,8 @@ int main(int argc, char *argv[])
                                     break;
                                 }
 
-                                printf("frame ----> %ld	Ack ----> %ld \n", i, sack_num);
+                                printf("frame ----> %ld	Ack ----> %ld \n", i,
+                                       sack_num);
 
                                 if (totalFrame == sack_num)
                                     printf("File sent\n");
@@ -817,17 +868,26 @@ int main(int argc, char *argv[])
 
                     long int totalFrame = 0, bytes_rec = 0, i = 0;
 
+                    // Enable the timeout option if client does not respond
                     t_out.tv_sec = 2;
-                    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)); // Enable the timeout option if client does not respond
+                    CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                     (char *)&t_out, sizeof(struct timeval)));
 
-                    recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, (socklen_t *)&clientLen); // Get the total number of frame to recieve
+                    // Get the total number of frame to recieve
+                    CHECK(recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0,
+                                   (struct sockaddr *)&clientStorage,
+                                   (socklen_t *)&clientLen));
 
+                    printf("total frame : %ld\n", totalFrame);
+                    // Disable the timeout option
                     t_out.tv_sec = 0;
-                    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)); // Disable the timeout option
+                    CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO,
+                                     (char *)&t_out, sizeof(struct timeval)));
 
                     if (totalFrame > 0)
                     {
-                        sendto(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, clientLen);
+                        CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame),
+                                     0, (struct sockaddr *)&clientStorage, clientLen));
                         printf("Total frame ---> %ld\n", totalFrame);
 
                         createFilePath(fileName, 's', filePathServer);
@@ -840,8 +900,12 @@ int main(int argc, char *argv[])
                         {
                             memset(&sframe, 0, sizeof(sframe));
 
-                            recvfrom(sockfd, &(sframe), sizeof(sframe), 0, (struct sockaddr *)&clientStorage, (socklen_t *)&clientLen); // Recieve the sframe
-                            sendto(sockfd, &(sframe.ID), sizeof(sframe.ID), 0, (struct sockaddr *)&clientStorage, clientLen);           // Send the ack
+                            CHECK(recvfrom(sockfd, &(sframe), sizeof(sframe), 0,
+                                           (struct sockaddr *)&clientStorage,
+                                           (socklen_t *)&clientLen)); // Recieve the sframe
+                            CHECK(sendto(sockfd, &(sframe.ID), sizeof(sframe.ID),
+                                         0, (struct sockaddr *)&clientStorage,
+                                         clientLen)); // Send the ack
 
                             /*Drop the repeated sframe*/
                             if ((sframe.ID < i) || (sframe.ID > i))
@@ -850,8 +914,12 @@ int main(int argc, char *argv[])
                             }
                             else
                             {
-                                fwrite(sframe.data, 1, sframe.length, sfptr); /*Write the recieved data to the file*/
-                                printf("sframe.ID ----> %ld	sframe.length ----> %ld\n", sframe.ID, sframe.length);
+                                /*Write the recieved data to the file*/
+                                fwrite(sframe.data, 1, sframe.length, sfptr);
+                                printf("sframe.ID ----> %ld	sframe.length ---->"
+                                       "%ld\n",
+                                       sframe.ID, sframe.length);
+
                                 bytes_rec += sframe.length;
                             }
 
