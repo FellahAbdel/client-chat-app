@@ -394,7 +394,10 @@ int main(int argc, char *argv[])
 
                     // We get the file name.
                     if (sscanf(message, "/GET %255s", fileName) != 1)
+                    {
+                        fprintf(stderr, "Erreur : sscanf()");
                         exit(EXIT_FAILURE);
+                    }
 
                     // We make sure there is something inside.
                     if (fileName[0] != '\0')
@@ -486,7 +489,10 @@ int main(int argc, char *argv[])
                 else if (strncmp(message, "/PUT", 4) == 0)
                 {
                     if (sscanf(message, "/PUT %255s", fileName) != 1)
+                    {
+                        fprintf(stderr, "Erreur : sscanf()");
                         exit(EXIT_FAILURE);
+                    }
 
                     if (fileName[0] != '\0')
                     {
@@ -798,10 +804,70 @@ int main(int argc, char *argv[])
                             printf("invalid Filename.\n");
                         }
                     } // end if something is in the buffer.
+                }
+                else if (strncmp(message, "/PUT", 4) == 0)
+                {
+                    if (sscanf(message, "/PUT %255s", fileName) != 1)
+                    {
+                        fprintf(stderr, "ERREUR : sscanf()");
+                        exit(EXIT_FAILURE);
+                    }
 
-                } // end GET command.
+                    printf("Server: Put called with file name --> %s\n", fileName);
 
-#endif // FILEIO.
+                    long int totalFrame = 0, bytes_rec = 0, i = 0;
+
+                    t_out.tv_sec = 2;
+                    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)); // Enable the timeout option if client does not respond
+
+                    recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, (socklen_t *)&clientLen); // Get the total number of frame to recieve
+
+                    t_out.tv_sec = 0;
+                    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)); // Disable the timeout option
+
+                    if (totalFrame > 0)
+                    {
+                        sendto(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, clientLen);
+                        printf("Total frame ---> %ld\n", totalFrame);
+
+                        createFilePath(fileName, 's', filePathServer);
+
+                        // open the file in write mode
+                        CHKN(sfptr = fopen(filePathServer, "wb"));
+
+                        /*Recieve all the frames and send the acknowledgement sequentially*/
+                        for (i = 1; i <= totalFrame; i++)
+                        {
+                            memset(&sframe, 0, sizeof(sframe));
+
+                            recvfrom(sockfd, &(sframe), sizeof(sframe), 0, (struct sockaddr *)&clientStorage, (socklen_t *)&clientLen); // Recieve the sframe
+                            sendto(sockfd, &(sframe.ID), sizeof(sframe.ID), 0, (struct sockaddr *)&clientStorage, clientLen);           // Send the ack
+
+                            /*Drop the repeated sframe*/
+                            if ((sframe.ID < i) || (sframe.ID > i))
+                            {
+                                i--;
+                            }
+                            else
+                            {
+                                fwrite(sframe.data, 1, sframe.length, sfptr); /*Write the recieved data to the file*/
+                                printf("sframe.ID ----> %ld	sframe.length ----> %ld\n", sframe.ID, sframe.length);
+                                bytes_rec += sframe.length;
+                            }
+
+                            if (i == totalFrame)
+                                printf("File recieved\n");
+                        }
+                        printf("Total bytes recieved ---> %ld\n", bytes_rec);
+                        fclose(sfptr);
+                    }
+                    else
+                    {
+                        printf("File is empty\n");
+                    }
+                }
+
+#endif // END FILEIO.
             } // end else (print received message.)
 
 #endif    // Basic version.
