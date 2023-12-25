@@ -482,104 +482,114 @@ int main(int argc, char *argv[])
                             printf("File is empty\n");
                         }
                     }
-                    else if (strncmp(message, "/PUT", 4) == 0)
+                }
+                else if (strncmp(message, "/PUT", 4) == 0)
+                {
+                    if (sscanf(message, "/PUT %255s", fileName) != 1)
+                        exit(EXIT_FAILURE);
+
+                    if (fileName[0] != '\0')
                     {
-                        if (sscanf(message, "/PUT %255s", fileName) != 1)
-                            exit(EXIT_FAILURE);
+                        // We must constructed the file path before.
+                        memset(filePathClient, 0, sizeof(filePathClient));
+                        createFilePath(fileName, 'c', filePathClient);
 
-                        if (fileName[0] != '\0')
-                        {
+                        if (access(filePathClient, F_OK) == 0)
+                        { // Check if file exist
+                            int totalFrame = 0, resendFrame = 0,
+                                dropFrame = 0, tOutFlag = 0;
+                            long int i = 0;
 
-                            if (access(fileName, F_OK) == 0)
-                            { // Check if file exist
-                                int totalFrame = 0, resendFrame = 0,
-                                    dropFrame = 0, tOutFlag = 0;
-                                long int i = 0;
+                            stat(filePathClient, &st);
+                            fileSize = st.st_size; // Size of the file
 
-                                stat(fileName, &st);
-                                fileSize = st.st_size; // Size of the file
+                            t_out.tv_sec = 2;
+                            t_out.tv_usec = 0;
+                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Set timeout option for recvfrom
 
-                                t_out.tv_sec = 2;
-                                t_out.tv_usec = 0;
-                                CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Set timeout option for recvfrom
+                            // Open the file to be sent
+                            CHKN(fptr = fopen(filePathClient, "rb"));
 
-                                fptr = fopen(fileName, "rb"); // Open the file to be sent
+                            if ((fileSize % BUF_SIZE) != 0)
+                                totalFrame = (fileSize / BUF_SIZE) + 1; // Total number of frames to be sent
+                            else
+                                totalFrame = (fileSize / BUF_SIZE);
 
-                                if ((fileSize % BUF_SIZE) != 0)
-                                    totalFrame = (fileSize / BUF_SIZE) + 1; // Total number of frames to be sent
-                                else
-                                    totalFrame = (fileSize / BUF_SIZE);
+                            printf("Total number of packets ---> %d	File size --> %ld\n", totalFrame, fileSize);
 
-                                printf("Total number of packets ---> %d	File size --> %ld\n", totalFrame, fileSize);
+                            if ((recvResult = recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen)) == -1)
+                            {
+                                if (errno != EAGAIN || errno != EWOULDBLOCK)
+                                {
+                                    perror("recvfrom(.., &totalFrame...)");
+                                }
+                            }
 
+                            printf("Ack num ---> %ld\n", sack_num);
+
+                            // check for Ack
+                            while (sack_num != totalFrame)
+                            {
+                                /*Keep retrying until ack match*/
+                                CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, clientLen));
                                 CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
 
-                                printf("Ack num ---> %ld\n", sack_num);
+                                resendFrame++;
 
-                                // check for Ack
-                                while (sack_num != totalFrame)
+                                /*Enable timeout flag after 20 tries*/
+                                if (resendFrame == 20)
                                 {
-                                    /*Keep retrying until ack match*/
-                                    CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame), 0, (struct sockaddr *)&clientStorage, clientLen));
-                                    CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
+                                    tOutFlag = 1;
+                                    break;
+                                }
+                            }
 
+                            /*transmit data frames sequentially followed by an acknowledgement matching*/
+                            for (i = 1; i <= totalFrame; i++)
+                            {
+                                memset(&frame, 0, sizeof(frame));
+                                sack_num = 0;
+                                frame.ID = i;
+                                frame.length = fread(frame.data, 1, BUF_SIZE, fptr);
+
+                                CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));                    // send the frame
+                                CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 1, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen)); // Recieve the acknowledgement
+
+                                /*Check for the ack match*/
+                                while (sack_num != frame.ID)
+                                {
+                                    CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));
+                                    CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
+                                    printf("frame ---> %ld	dropped, %d times\n", frame.ID, ++dropFrame);
                                     resendFrame++;
 
-                                    /*Enable timeout flag after 20 tries*/
-                                    if (resendFrame == 20)
+                                    /*Enable timeout flag after 200 tries*/
+                                    if (resendFrame == 200)
                                     {
                                         tOutFlag = 1;
                                         break;
                                     }
                                 }
+                                dropFrame = 0;
+                                resendFrame = 0;
 
-                                /*transmit data frames sequentially followed by an acknowledgement matching*/
-                                for (i = 1; i <= totalFrame; i++)
+                                /*File transfer fails if timeout occurs*/
+                                if (tOutFlag == 1)
                                 {
-                                    memset(&frame, 0, sizeof(frame));
-                                    sack_num = 0;
-                                    frame.ID = i;
-                                    frame.length = fread(frame.data, 1, BUF_SIZE, fptr);
-
-                                    CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));                    // send the frame
-                                    CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 1, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen)); // Recieve the acknowledgement
-
-                                    /*Check for the ack match*/
-                                    while (sack_num != frame.ID)
-                                    {
-                                        CHECK(sendto(sockfd, &(frame), sizeof(frame), 0, (struct sockaddr *)&clientStorage, clientLen));
-                                        CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num), 0, (struct sockaddr *)&serverAddr, (socklen_t *)&serverLen));
-                                        printf("frame ---> %ld	dropped, %d times\n", frame.ID, ++dropFrame);
-                                        resendFrame++;
-
-                                        /*Enable timeout flag after 200 tries*/
-                                        if (resendFrame == 200)
-                                        {
-                                            tOutFlag = 1;
-                                            break;
-                                        }
-                                    }
-                                    dropFrame = 0;
-                                    resendFrame = 0;
-
-                                    /*File transfer fails if timeout occurs*/
-                                    if (tOutFlag == 1)
-                                    {
-                                        printf("File not sent\n");
-                                        break;
-                                    }
-
-                                    printf("frame ----> %ld	Ack ----> %ld\n", i, sack_num);
-
-                                    if (totalFrame == sack_num)
-                                        printf("File sent\n");
+                                    printf("File not sent\n");
+                                    break;
                                 }
-                                fclose(fptr);
 
-                                printf("Disable the timeout\n");
-                                t_out.tv_sec = 0;
-                                CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Disable timeout
+                                printf("frame ----> %ld	Ack ----> %ld\n", i, sack_num);
+
+                                if (totalFrame == sack_num)
+                                    printf("File sent\n");
                             }
+                            fclose(fptr);
+
+                            printf("Disable the timeout\n");
+                            t_out.tv_sec = 0;
+                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Disable timeout
                         }
                     }
                 }
