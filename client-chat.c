@@ -584,16 +584,17 @@ int main(int argc, char *argv[])
 
                                 if (totalFrame == sack_num)
                                     printf("File sent\n");
-                            }
+                            } // END for loop
                             fclose(fptr);
 
                             printf("Disable the timeout\n");
+                            // Disable timeout
                             t_out.tv_sec = 0;
-                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval))); // Disable timeout
-                        }
-                    }
-                }
-            }
+                            CHECK(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&t_out, sizeof(struct timeval)));
+                        } // END file exists.
+                    }     // END there is something in the buffer.
+                }         // END PUT case.
+            }             // END /GET OR /PUT command.
 #endif
 #ifdef BIN
             // running is 0 if message is equal to QUIT, so we quit the loop.
