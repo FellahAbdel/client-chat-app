@@ -377,7 +377,7 @@ int main(int argc, char *argv[])
             {
                 // We only send QUIT command in binary form which is one byte.
                 message[0] = QUIT;
-                message[1] = '\0';
+                message[1] = '\0'; // so that strlen(message) will yield 1
             }
 #endif
 
