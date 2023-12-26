@@ -554,6 +554,8 @@ int main(int argc, char *argv[])
                                           (struct sockaddr *)&serverAddr,
                                           (socklen_t *)&serverLen)) == -1)
                             {
+                                // Avoid the program crash if the file that we
+                                // are sending does not exist.
                                 if (errno != EAGAIN || errno != EWOULDBLOCK)
                                 {
                                     perror("recvfrom(.., &totalFrame...)");
@@ -887,9 +889,17 @@ int main(int argc, char *argv[])
                                      (char *)&t_out, sizeof(struct timeval)));
 
                     // Get the total number of frame to recieve
-                    CHECK(recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0,
-                                   (struct sockaddr *)&clientStorage,
-                                   (socklen_t *)&clientLen));
+                    if ((recvfrom(sockfd, &(totalFrame), sizeof(totalFrame), 0,
+                                  (struct sockaddr *)&clientStorage,
+                                  (socklen_t *)&clientLen)) == -1)
+                    {
+                        // Avoid the program crash if the file that we
+                        // are sending does not exist.
+                        if (errno != EAGAIN || errno != EWOULDBLOCK)
+                        {
+                            perror("recvfrom(..., &(totalFrame))");
+                        }
+                    }
 
                     printf("total frame : %ld\n", totalFrame);
                     // Disable the timeout option
