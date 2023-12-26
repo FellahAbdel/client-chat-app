@@ -184,7 +184,10 @@ int main(int argc, char *argv[])
     char filePathServer[PATH_MAX];
     char fileName[FILENAME_MAX] = {0};
     struct timeval t_out = {0, 0};
-    struct stat st;
+    struct stat st = {0};
+    struct stat stDir = {0};
+    const char *dirNameClient = "./clientFiles";
+    const char *dirNameServer = "./serverFiles";
     struct frame_t frame;
     char ack_send[4] = "ACK";
 
@@ -436,6 +439,13 @@ int main(int argc, char *argv[])
 
                             // We construct the file path.
                             memset(filePathClient, 0, sizeof(filePathClient));
+
+                            // if the ./clientFiles doesn't we create it.
+                            if (stat(dirNameClient, &stDir) == -1)
+                            {
+                                mkdir(dirNameClient, 0700);
+                            }
+
                             createFilePath(fileName, 'c', filePathClient);
 
                             printf("path : %s\n", filePathClient);
@@ -892,6 +902,11 @@ int main(int argc, char *argv[])
                         CHECK(sendto(sockfd, &(totalFrame), sizeof(totalFrame),
                                      0, (struct sockaddr *)&clientStorage, clientLen));
                         printf("Total frame ---> %ld\n", totalFrame);
+
+                        if (stat(dirNameServer, &stDir) == -1)
+                        {
+                            mkdir(dirNameServer, 0700);
+                        }
 
                         createFilePath(fileName, 's', filePathServer);
 
