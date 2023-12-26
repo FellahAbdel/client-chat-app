@@ -751,8 +751,8 @@ int main(int argc, char *argv[])
                             CHECK(recvfrom(sockfd, &(sack_num), sizeof(sack_num),
                                            0, (struct sockaddr *)&clientStorage,
                                            (socklen_t *)&clientLen));
-
-                            while (sack_num != totalFrame) // Check for the acknowledgement
+                            // Check for the acknowledgement
+                            while (sack_num != totalFrame)
                             {
                                 /*keep Retrying until the ack matches*/
                                 CHECK(sendto(sockfd, &(totalFrame),
@@ -767,7 +767,8 @@ int main(int argc, char *argv[])
 
                                 resendFrame++;
 
-                                /*Enable timeout flag even if it fails after 20 tries*/
+                                /*Enable timeout flag even if it fails after
+                                20 tries*/
                                 if (resendFrame == 20)
                                 {
                                     tOutFlag = 1;
@@ -775,7 +776,8 @@ int main(int argc, char *argv[])
                                 }
                             }
 
-                            /*transmit data frames sequentially followed by an acknowledgement matching*/
+                            /*transmit data frames sequentially followed by an
+                            acknowledgement matching*/
                             for (i = 1; i <= totalFrame; i++)
                             {
                                 memset(&sframe, 0, sizeof(sframe));
@@ -815,7 +817,8 @@ int main(int argc, char *argv[])
                                     printf("sframe ---> %ld	dropped, %d times\n",
                                            sframe.ID, dropFrame);
 
-                                    /*Enable the timeout flag even if it fails after 200 tries*/
+                                    /*Enable the timeout flag even if it fails
+                                    after 200 tries*/
                                     if (resendFrame == 200)
                                     {
                                         tOutFlag = 1;
@@ -900,12 +903,14 @@ int main(int argc, char *argv[])
                         {
                             memset(&sframe, 0, sizeof(sframe));
 
+                            // Recieve the sframe
                             CHECK(recvfrom(sockfd, &(sframe), sizeof(sframe), 0,
                                            (struct sockaddr *)&clientStorage,
-                                           (socklen_t *)&clientLen)); // Recieve the sframe
+                                           (socklen_t *)&clientLen));
+                            // Send the ack
                             CHECK(sendto(sockfd, &(sframe.ID), sizeof(sframe.ID),
                                          0, (struct sockaddr *)&clientStorage,
-                                         clientLen)); // Send the ack
+                                         clientLen));
 
                             /*Drop the repeated sframe*/
                             if ((sframe.ID < i) || (sframe.ID > i))
