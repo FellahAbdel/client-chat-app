@@ -913,6 +913,7 @@ int main(int argc, char *argv[])
                                      0, (struct sockaddr *)&clientStorage, clientLen));
                         printf("Total frame ---> %ld\n", totalFrame);
 
+                        // Create the ./serverFiles dir if it doesn't exist.
                         if (stat(dirNameServer, &stDir) == -1)
                         {
                             mkdir(dirNameServer, 0700);
