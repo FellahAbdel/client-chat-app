@@ -42,6 +42,7 @@ SOFTWARE.
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <semaphore.h>
 #endif
 
 #define CHECK(op)               \
@@ -183,6 +184,7 @@ typedef struct
     int countClients;
     struct sockaddr_in6 address;
     char username[MAX_USERNAME_LEN];
+    sem_t semCountClient;
 } ClientInfo;
 
 static int countClients = 0;
@@ -338,7 +340,10 @@ int main(int argc, char *argv[])
 
 #ifdef USR
             printf("countClient : %d\n", clientsArray->countClients);
+            CHECK(sem_wait(&clientsArray->semCountClient));
             clientsArray->countClients++;
+            CHECK(sem_post(&clientsArray->semCountClient));
+
             printf("countClient : %d\n", clientsArray->countClients);
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
@@ -358,6 +363,7 @@ int main(int argc, char *argv[])
         // We init here the client counts otherwise each time a client join
         //
         clientsArray->countClients = 0;
+        CHECK(sem_init(&clientsArray->semCountClient, 1, 1));
 
 #endif
         printf("I'm the program server, waiting for connection...\n");
