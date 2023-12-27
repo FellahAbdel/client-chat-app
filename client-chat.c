@@ -38,6 +38,12 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <limits.h>
 
+#ifdef USR
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+
 #define CHECK(op)               \
     do                          \
     {                           \
@@ -167,23 +173,27 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 
 #ifdef USR
 
+#define MEMNAME "/table"
+
 #define MAX_CLIENTS 10
 #define MAX_USERNAME_LEN 20
 
 typedef struct
 {
+    int countClients;
     struct sockaddr_in6 address;
     char username[MAX_USERNAME_LEN];
 } ClientInfo;
 
-int numClients = 0;
+static int countClients = 0;
 ClientInfo clients[MAX_CLIENTS];
 
 // Function to broadcast a message to all clients except the sender
 void broadcastMessage(const char *senderUsername, const char *message)
 {
+    int sockfd = 3;
     // Loop through current clients.
-    for (int i = 0; i < numClients; ++i)
+    for (int i = 0; i < countClients; ++i)
     {
         // If it's not the sender.
         if (strcmp(clients[i].username, senderUsername) != 0)
@@ -214,6 +224,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef FILEIO
+    // printf("We got here.\n");
     char filePathClient[PATH_MAX];
     char filePathServer[PATH_MAX];
     char fileName[FILENAME_MAX] = {0};
@@ -254,6 +265,30 @@ int main(int argc, char *argv[])
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
 
+#ifdef USR
+    int shmfd;                // File descriptor for the shared memory object
+    ClientInfo *clientsArray; // Pointer to the shared ClientInfo array
+    ssize_t structSize;
+    // Create or open a shared memory object
+    CHECK(shmfd = shm_open(MEMNAME, O_CREAT | O_RDWR, 0666));
+
+    // Get the size of the structure.
+    structSize = sizeof(ClientInfo) * MAX_CLIENTS;
+
+    // Configure the size of the shared memory object
+    CHECK(ftruncate(shmfd, structSize));
+
+    // Map the shared memory object into the process's address space
+    clientsArray = mmap(NULL, structSize, PROT_READ | PROT_WRITE, MAP_SHARED,
+                        shmfd, 0);
+    if (clientsArray == MAP_FAILED)
+    {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+#endif
+
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
@@ -271,11 +306,11 @@ int main(int argc, char *argv[])
     struct sockaddr_storage clientStorage;
     socklen_t clientLen = sizeof(clientStorage);
 
-    char buffer[MAX_MSG_LEN];
+    char buffer[MAX_MSG_LEN] = {0};
     (void)buffer;
     /* check if a client is already present */
     /* We bind the socket to the port number passed*/
-    char buffer[MAX_MSG_LEN] = {0};
+    // char buffer[MAX_MSG_LEN] = {0};
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof serverAddr) < 0)
     {
         if (errno == EADDRINUSE)
@@ -300,6 +335,12 @@ int main(int argc, char *argv[])
             const void *buff = messageBuff;
             size = 5; // 5 caractères
 #endif
+
+#ifdef USR
+            printf("countClient : %d\n", clientsArray->countClients);
+            clientsArray->countClients++;
+            printf("countClient : %d\n", clientsArray->countClients);
+#endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
@@ -312,7 +353,14 @@ int main(int argc, char *argv[])
     }
     else
     {
-        // printf("I'm the program server, waiting for connection...\n");
+
+#ifdef USR
+        // We init here the client counts otherwise each time a client join
+        //
+        clientsArray->countClients = 0;
+
+#endif
+        printf("I'm the program server, waiting for connection...\n");
         /*
         Event: recv / HELO
         Action : print remote addr and port
@@ -1011,6 +1059,13 @@ int main(int argc, char *argv[])
     /* close socket */
     CHECK(close(sockfd));
 
+#ifdef USR
+    // Unmap the shared memory object
+    CHECK(munmap(clientsArray, structSize));
+
+    // Close the shared memory object
+    CHECK(close(shmfd));
+#endif
     /* free memory */
     return 0;
 }
