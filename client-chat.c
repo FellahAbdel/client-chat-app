@@ -321,6 +321,7 @@ int main(int argc, char *argv[])
             const void *buff = binBuff;
             size = 1; // 1 octet.
 #elif USR
+            // In USR mode we send /HELO FROM username.
             printf("Enter your name please : ");
             scanf("%s", clientUsername);
 
