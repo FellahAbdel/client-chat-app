@@ -274,6 +274,9 @@ int main(int argc, char *argv[])
     int shmfd;           // File descriptor for the shared memory object
     struct Table *table; // Pointer to the shared Table
     ssize_t structSize;
+
+    char clientUsername[MAX_USERNAME_LEN];
+    char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
 #endif
 
     /* create socket */
@@ -317,6 +320,19 @@ int main(int argc, char *argv[])
             uint8_t binBuff[1] = {HELO};
             const void *buff = binBuff;
             size = 1; // 1 octet.
+#elif USR
+            printf("Enter your name please : ");
+            scanf("%s", clientUsername);
+
+            int result = snprintf(bufferGreetings, 10 + MAX_USERNAME_LEN,
+                                  "/HELO FROM %s", clientUsername);
+            if (result < 0 || result >= 10 + MAX_USERNAME_LEN)
+            {
+                fprintf(stderr, "Error: Name exceeded the limit\n");
+                exit(EXIT_FAILURE);
+            }
+            const void *buff = bufferGreetings;
+            size = sizeof(bufferGreetings);
 #else
             const char *messageBuff = "/HELO";
             const void *buff = messageBuff;
