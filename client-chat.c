@@ -493,16 +493,34 @@ int main(int argc, char *argv[])
                     // We have to store the client informations.
                     table->clientsLst[table->countClients].address =
                         clientStorage;
+
                     // printf("hello : %s\n", table->clientsLst[table->countClients].username);
 
                     int result = snprintf(welcomeMessage, MAX_WELCOME_MSG,
-                                          "%s join the server", clientUsername);
+                                          "%s join the server\n", clientUsername);
 
                     checkSnprintf(result, MAX_WELCOME_MSG);
 
-                    // if (result)
-                    //     // Tell them "Welcome to the chat room.
-                    //     sendto(sockfd, )
+                    printf("countclient : %d\n", table->countClients);
+                    // We must inform everyone before him in the chat room
+                    //( so a broadcast)
+                    // if there's only one user then no need to inform him
+                    if (table->countClients >= 1)
+                    {
+                        printf("got here\n");
+                        // There is at least two users.
+                        printf("t - 1 : %d\n", table->countClients - 1);
+                        for (int i = table->countClients - 1; i >= 0; i--)
+                        {
+                            // We inform all of them except the last to one
+                            // to join.
+                            printf("got here here.\n");
+                            CHECK(sendto(sockfd, welcomeMessage, strlen(welcomeMessage), 0,
+                                         (struct sockaddr *)&table->clientsLst[i].address,
+                                         sizeof(table->clientsLst[i].address)));
+                            // sleep(1);
+                        }
+                    }
                 }
 
                 waiting = 1; // We keep waiting for new usr.
@@ -533,6 +551,7 @@ int main(int argc, char *argv[])
     int running = 1;
     while (running)
     {
+        printf("got in the main loop\n");
         int activity;
         CHECK(activity = poll(fds, 2, -1)); // -1 une attente indéfini.
 
