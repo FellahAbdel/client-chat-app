@@ -176,14 +176,15 @@ typedef struct
     char username[MAX_USERNAME_LEN];
 } ClientInfo;
 
-int numClients = 0;
+static int countClients = 0;
 ClientInfo clients[MAX_CLIENTS];
 
 // Function to broadcast a message to all clients except the sender
 void broadcastMessage(const char *senderUsername, const char *message)
 {
+    int sockfd = 3;
     // Loop through current clients.
-    for (int i = 0; i < numClients; ++i)
+    for (int i = 0; i < countClients; ++i)
     {
         // If it's not the sender.
         if (strcmp(clients[i].username, senderUsername) != 0)
@@ -271,11 +272,11 @@ int main(int argc, char *argv[])
     struct sockaddr_storage clientStorage;
     socklen_t clientLen = sizeof(clientStorage);
 
-    char buffer[MAX_MSG_LEN];
+    char buffer[MAX_MSG_LEN] = {0};
     (void)buffer;
     /* check if a client is already present */
     /* We bind the socket to the port number passed*/
-    char buffer[MAX_MSG_LEN] = {0};
+    // char buffer[MAX_MSG_LEN] = {0};
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof serverAddr) < 0)
     {
         if (errno == EADDRINUSE)
@@ -299,6 +300,10 @@ int main(int argc, char *argv[])
             const char *messageBuff = "/HELO";
             const void *buff = messageBuff;
             size = 5; // 5 caractères
+#endif
+#ifdef USR
+            countClients++;
+            printf("countClient : %d\n", countClients);
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
