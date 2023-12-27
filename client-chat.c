@@ -178,6 +178,7 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 
 #define MAX_CLIENTS 10
 #define MAX_USERNAME_LEN 20
+#define MAX_WELCOME_MSG 10 + MAX_USERNAME_LEN
 
 struct ClientInfo
 {
@@ -213,6 +214,15 @@ struct Table
 // }
 
 #endif
+
+void checkSnprintf(int result, int max)
+{
+    if (result < 0 || result > max)
+    {
+        fprintf(stderr, "Erreur snprintf");
+        exit(EXIT_FAILURE);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -277,6 +287,7 @@ int main(int argc, char *argv[])
 
     char clientUsername[MAX_USERNAME_LEN];
     char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
+    char welcomeMessage[MAX_WELCOME_MSG];
 #endif
 
     /* create socket */
@@ -327,11 +338,9 @@ int main(int argc, char *argv[])
 
             int result = snprintf(bufferGreetings, 10 + MAX_USERNAME_LEN,
                                   "/HELO FROM %s", clientUsername);
-            if (result < 0 || result >= 10 + MAX_USERNAME_LEN)
-            {
-                fprintf(stderr, "Error: Name exceeded the limit\n");
-                exit(EXIT_FAILURE);
-            }
+
+            checkSnprintf(result, 10 + MAX_USERNAME_LEN);
+
             const void *buff = bufferGreetings;
             size = sizeof(bufferGreetings);
 #else
@@ -473,12 +482,28 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Erreur : sscanf()");
                     exit(EXIT_FAILURE);
                 }
+
                 if (clientUsername[0] != '\0')
                 {
-                    printf("hello %s\n", clientUsername);
+                    // printf("hello %s\n", clientUsername);
+
+                    strcpy(table->clientsLst[table->countClients].username,
+                           clientUsername);
+
+                    // We have to store the client informations.
+                    table->clientsLst[table->countClients].address =
+                        clientStorage;
+                    // printf("hello : %s\n", table->clientsLst[table->countClients].username);
+
+                    int result = snprintf(welcomeMessage, MAX_WELCOME_MSG,
+                                          "%s join the server", clientUsername);
+
+                    checkSnprintf(result, MAX_WELCOME_MSG);
+
+                    // if (result)
+                    //     // Tell them "Welcome to the chat room.
+                    //     sendto(sockfd, )
                 }
-                // We have to store the client informations.
-                table->clientsLst[table->countClients].address = clientStorage;
 
                 waiting = 1; // We keep waiting for new usr.
 #endif
