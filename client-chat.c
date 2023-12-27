@@ -182,8 +182,10 @@ ClientInfo clients[MAX_CLIENTS];
 // Function to broadcast a message to all clients except the sender
 void broadcastMessage(const char *senderUsername, const char *message)
 {
+    // Loop through current clients.
     for (int i = 0; i < numClients; ++i)
     {
+        // If it's not the sender.
         if (strcmp(clients[i].username, senderUsername) != 0)
         {
             char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
@@ -194,6 +196,7 @@ void broadcastMessage(const char *senderUsername, const char *message)
         }
     }
 }
+
 #endif
 
 int main(int argc, char *argv[])
