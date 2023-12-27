@@ -165,6 +165,37 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 }
 #endif
 
+#ifdef USR
+
+#define MAX_CLIENTS 10
+#define MAX_USERNAME_LEN 20
+
+typedef struct
+{
+    struct sockaddr_in6 address;
+    char username[MAX_USERNAME_LEN];
+} ClientInfo;
+
+int numClients = 0;
+ClientInfo clients[MAX_CLIENTS];
+
+// Function to broadcast a message to all clients except the sender
+void broadcastMessage(const char *senderUsername, const char *message)
+{
+    for (int i = 0; i < numClients; ++i)
+    {
+        if (strcmp(clients[i].username, senderUsername) != 0)
+        {
+            char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
+            sprintf(fullMessage, "%s: %s", senderUsername, message);
+
+            sendto(sockfd, fullMessage, strlen(fullMessage), 0,
+                   (struct sockaddr *)&clients[i].address, sizeof(clients[i].address));
+        }
+    }
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     int sockfd;
