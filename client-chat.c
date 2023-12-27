@@ -466,6 +466,17 @@ int main(int argc, char *argv[])
                                   host, service);
                 waiting = 0; // Stop waiting
 #ifdef USR
+                // We have to take the username.
+                if (sscanf((char *)genericPtr, "/HELO FROM %20s",
+                           clientUsername) != 1)
+                {
+                    fprintf(stderr, "Erreur : sscanf()");
+                    exit(EXIT_FAILURE);
+                }
+                if (clientUsername[0] != '\0')
+                {
+                    printf("hello %s\n", clientUsername);
+                }
                 // We have to store the client informations.
                 table->clientsLst[table->countClients].address = clientStorage;
 
