@@ -179,35 +179,38 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 #define MAX_CLIENTS 10
 #define MAX_USERNAME_LEN 20
 
-typedef struct
+struct ClientInfo
 {
-    int countClients;
     struct sockaddr_in6 address;
     char username[MAX_USERNAME_LEN];
-    sem_t semCountClient;
-} ClientInfo;
+};
 
-static int countClients = 0;
-ClientInfo clients[MAX_CLIENTS];
+struct Table
+{
+    int maxClients;   // MAX user that can join the chat room.
+    int countClients; //  current user in the chat room
+    sem_t semCountClient;
+    struct ClientInfo clientsLst[];
+} Table;
 
 // Function to broadcast a message to all clients except the sender
-void broadcastMessage(const char *senderUsername, const char *message)
-{
-    int sockfd = 3;
-    // Loop through current clients.
-    for (int i = 0; i < countClients; ++i)
-    {
-        // If it's not the sender.
-        if (strcmp(clients[i].username, senderUsername) != 0)
-        {
-            char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
-            sprintf(fullMessage, "%s: %s", senderUsername, message);
+// void broadcastMessage(const char *senderUsername, const char *message)
+// {
+//     int sockfd = 3;
+//     // Loop through current clients.
+//     for (int i = 0; i < countClients; ++i)
+//     {
+//         // If it's not the sender.
+//         if (strcmp(clients[i].username, senderUsername) != 0)
+//         {
+//             char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
+//             sprintf(fullMessage, "%s: %s", senderUsername, message);
 
-            sendto(sockfd, fullMessage, strlen(fullMessage), 0,
-                   (struct sockaddr *)&clients[i].address, sizeof(clients[i].address));
-        }
-    }
-}
+//             sendto(sockfd, fullMessage, strlen(fullMessage), 0,
+//                    (struct sockaddr *)&clients[i].address, sizeof(clients[i].address));
+//         }
+//     }
+// }
 
 #endif
 
@@ -267,30 +270,6 @@ int main(int argc, char *argv[])
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
 
-#ifdef USR
-    int shmfd;                // File descriptor for the shared memory object
-    ClientInfo *clientsArray; // Pointer to the shared ClientInfo array
-    ssize_t structSize;
-    // Create or open a shared memory object
-    CHECK(shmfd = shm_open(MEMNAME, O_CREAT | O_RDWR, 0666));
-
-    // Get the size of the structure.
-    structSize = sizeof(ClientInfo) * MAX_CLIENTS;
-
-    // Configure the size of the shared memory object
-    CHECK(ftruncate(shmfd, structSize));
-
-    // Map the shared memory object into the process's address space
-    clientsArray = mmap(NULL, structSize, PROT_READ | PROT_WRITE, MAP_SHARED,
-                        shmfd, 0);
-    if (clientsArray == MAP_FAILED)
-    {
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }
-
-#endif
-
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
 
@@ -339,12 +318,31 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USR
-            printf("countClient : %d\n", clientsArray->countClients);
-            CHECK(sem_wait(&clientsArray->semCountClient));
-            clientsArray->countClients++;
-            CHECK(sem_post(&clientsArray->semCountClient));
+            int shmfd;
+            struct stat stbufshm;
 
-            printf("countClient : %d\n", clientsArray->countClients);
+            // We open the shared segment.
+            CHECK(shmfd = shm_open(MEMNAME, O_RDWR, 0));
+
+            // We get the length of the shared memory object.
+            CHECK(fstat(shmfd, &stbufshm));
+
+            // We project it in memory.
+            struct Table *table = mmap(NULL, stbufshm.st_size, PROT_READ | PROT_WRITE,
+                                       MAP_SHARED, shmfd, 0);
+
+            if (table == MAP_FAILED)
+            {
+                perror("Map failed");
+                CHECK(close(shmfd));
+            }
+
+            printf("countClient : %d\n", table->countClients);
+            CHECK(sem_wait(&table->semCountClient));
+            table->countClients++;
+            CHECK(sem_post(&table->semCountClient));
+
+            printf("countClient : %d\n", table->countClients);
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
@@ -360,10 +358,33 @@ int main(int argc, char *argv[])
     {
 
 #ifdef USR
+        // Only the server should execute this code .
+        int shmfd;           // File descriptor for the shared memory object
+        struct Table *table; // Pointer to the shared Table
+        ssize_t structSize;
+        // Create or open a shared memory object
+        CHECK(shmfd = shm_open(MEMNAME, O_CREAT | O_RDWR | O_TRUNC, 0666));
+
+        // Get the size of the structure.
+        structSize = sizeof(struct Table) +
+                     MAX_CLIENTS * sizeof(struct ClientInfo);
+
+        // Configure the size of the shared memory object
+        CHECK(ftruncate(shmfd, structSize));
+
+        // Map the shared memory object into the process's address space
+        table = mmap(NULL, structSize, PROT_READ | PROT_WRITE, MAP_SHARED,
+                     shmfd, 0);
+        if (table == MAP_FAILED)
+        {
+            perror("mmap");
+            exit(EXIT_FAILURE);
+        }
         // We init here the client counts otherwise each time a client join
         //
-        clientsArray->countClients = 0;
-        CHECK(sem_init(&clientsArray->semCountClient, 1, 1));
+        table->countClients = 0;
+        table->maxClients = MAX_CLIENTS;
+        CHECK(sem_init(&table->semCountClient, 1, 1));
 
 #endif
         printf("I'm the program server, waiting for connection...\n");
@@ -1065,13 +1086,13 @@ int main(int argc, char *argv[])
     /* close socket */
     CHECK(close(sockfd));
 
-#ifdef USR
-    // Unmap the shared memory object
-    CHECK(munmap(clientsArray, structSize));
+    // #ifdef USR
+    //     // Unmap the shared memory object
+    //     CHECK(munmap(table, structSize));
 
-    // Close the shared memory object
-    CHECK(close(shmfd));
-#endif
+    //     // Close the shared memory object
+    //     CHECK(close(shmfd));
+    // #endif
     /* free memory */
     return 0;
 }
