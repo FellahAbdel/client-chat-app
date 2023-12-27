@@ -181,7 +181,7 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 
 struct ClientInfo
 {
-    struct sockaddr_in6 address;
+    struct sockaddr_storage address;
     char username[MAX_USERNAME_LEN];
 };
 
@@ -269,6 +269,12 @@ int main(int argc, char *argv[])
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
+
+#ifdef USR
+    int shmfd;           // File descriptor for the shared memory object
+    struct Table *table; // Pointer to the shared Table
+    ssize_t structSize;
+#endif
 
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
@@ -359,9 +365,7 @@ int main(int argc, char *argv[])
 
 #ifdef USR
         // Only the server should execute this code .
-        int shmfd;           // File descriptor for the shared memory object
-        struct Table *table; // Pointer to the shared Table
-        ssize_t structSize;
+
         // Create or open a shared memory object
         CHECK(shmfd = shm_open(MEMNAME, O_CREAT | O_RDWR | O_TRUNC, 0666));
 
@@ -382,7 +386,7 @@ int main(int argc, char *argv[])
         }
         // We init here the client counts otherwise each time a client join
         //
-        table->countClients = 0;
+        table->countClients = -1; // we start counting from 0 (1 client)
         table->maxClients = MAX_CLIENTS;
         CHECK(sem_init(&table->semCountClient, 1, 1));
 
@@ -415,9 +419,11 @@ int main(int argc, char *argv[])
             genericPtr = (void *)receivedText;
 
 #endif
+
             CHECK(bytesRecv = recvfrom(sockfd, genericPtr, MAX_MSG_LEN - 1, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
+
 #ifdef BIN
             if (*(uint8_t *)genericPtr == HELO)
             {
@@ -442,6 +448,12 @@ int main(int argc, char *argv[])
                 displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
                                   host, service);
                 waiting = 0; // Stop waiting
+#ifdef USR
+                // We have to store the client informations.
+                table->clientsLst[table->countClients].address = clientStorage;
+
+                waiting = 1; // We keep waiting for new usr.
+#endif
             }
 
             free(genericPtr); // Free allocated memory
