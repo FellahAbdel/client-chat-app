@@ -615,10 +615,11 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USR
+            struct FullMessage fullMessage = {0};
+
             // We don't send empty message.
             if (message[0] != '\n' && message[0] != '\0')
             {
-                struct FullMessage fullMessage = {0};
                 // strcpy(fullMessage.username, clientUsername);
                 sprintf(fullMessage.username, "%s", clientUsername);
                 sprintf(fullMessage.message, "%s", message);
@@ -937,8 +938,28 @@ int main(int argc, char *argv[])
             {
 #ifdef USR
                 // before quitting we have the decrement the countClients var
+                // we do not only decrement we have to move the last client
+                // to at the place of the one leaving the room.
                 CHECK(sem_wait(&tableClient->semCountClient));
-                tableClient->countClients--;
+                if (tableClient->countClients >= 1)
+                {
+                    // There is atleast two clients (0 and 1)
+                    for (int i = 0; i <= tableClient->countClients; i++)
+                    {
+                        if (strcmp(tableClient->clientsLst[i].username,
+                                   fullMessage.username) == 0)
+                        {
+                            tableClient->clientsLst[i] =
+                                tableClient->clientsLst[tableClient->countClients];
+                            tableClient->countClients--;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    tableClient->countClients--;
+                }
                 CHECK(sem_post(&tableClient->semCountClient));
 #endif
                 running = 0;
