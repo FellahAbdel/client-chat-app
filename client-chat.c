@@ -194,6 +194,13 @@ struct Table
     struct ClientInfo clientsLst[];
 } Table;
 
+struct FullMessage
+{
+    char welcomeMessage[MAX_WELCOME_MSG];
+    char username[MAX_USERNAME_LEN];
+    char message[MAX_MSG_LEN];
+};
+
 // Function to broadcast a message to all clients except the sender
 // void broadcastMessage(const char *senderUsername, const char *message)
 // {
@@ -288,8 +295,10 @@ int main(int argc, char *argv[])
 
     char clientUsername[MAX_USERNAME_LEN];
     char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
-    char welcomeMessage[MAX_WELCOME_MSG];
-    char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
+    // char welcomeMessage[MAX_WELCOME_MSG];
+    // char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
+    // struct FullMessage fullMessage = {0};
+    // struct FullMessage buffFullMessage = {0};
 
 #endif
 
@@ -495,9 +504,9 @@ int main(int argc, char *argv[])
                     table->clientsLst[table->countClients].address =
                         clientStorage;
 
-                    // printf("hello : %s\n", table->clientsLst[table->countClients].username);
-
-                    int result = snprintf(welcomeMessage, MAX_WELCOME_MSG,
+                    // We only fill the welcome message variable.
+                    struct FullMessage fullMessage = {0};
+                    int result = snprintf(fullMessage.welcomeMessage, MAX_WELCOME_MSG,
                                           "%s join the server\n", clientUsername);
 
                     checkSnprintf(result, MAX_WELCOME_MSG);
@@ -515,7 +524,7 @@ int main(int argc, char *argv[])
                             // We inform all of them except the last to one
                             // to join.
                             // printf("got here here.\n");
-                            CHECK(sendto(sockfd, welcomeMessage, strlen(welcomeMessage), 0,
+                            CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage), 0,
                                          (struct sockaddr *)&table->clientsLst[i].address,
                                          sizeof(table->clientsLst[i].address)));
                             // sleep(1);
@@ -583,12 +592,17 @@ int main(int argc, char *argv[])
             // We don't send empty message.
             if (message[0] != '\n' && message[0] != '\0')
             {
-                // Client name in stored clientUsername
-                if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
-                {
-                    fprintf(stderr, "Sprintf failed.");
-                    exit(EXIT_FAILURE);
-                }
+                struct FullMessage fullMessage = {0};
+                // strcpy(fullMessage.username, clientUsername);
+                sprintf(fullMessage.username, "%s", clientUsername);
+                sprintf(fullMessage.message, "%s", message);
+                // strcpy(fullMessage.message, message);
+                // // Client name in stored clientUsername
+                // if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
+                // {
+                //     fprintf(stderr, "Sprintf failed.");
+                //     exit(EXIT_FAILURE);
+                // }
                 // Iterate through clients and send message to all except the sender
                 for (int i = tableClient->countClients; i >= 0; i--)
                 {
@@ -597,7 +611,7 @@ int main(int argc, char *argv[])
                     {
                         // They are different.
                         // Send message to client[i]
-                        CHECK(sendto(sockfd, fullMessage, strlen(fullMessage), 0,
+                        CHECK(sendto(sockfd, &fullMessage, sizeof(fullMessage), 0,
                                      (struct sockaddr *)&tableClient->clientsLst[i].address,
                                      sizeof(tableClient->clientsLst[i].address)));
                     }
@@ -899,12 +913,21 @@ int main(int argc, char *argv[])
         // Wainting an event from the socket.
         if (fds[1].revents & POLLIN)
         {
+#ifdef USR
+            struct FullMessage buffFullMessage = {0};
+            CHECK(bytesRecv = recvfrom(sockfd, &buffFullMessage,
+                                       sizeof(struct FullMessage), 0,
+                                       (struct sockaddr *)&clientStorage,
+                                       &clientLen));
+
+#else
             CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
 
             // A message is well received.
             message[bytesRecv] = '\0';
+#endif
 
 #ifdef BIN
             // if message is QUIT we quit the loop else print the received the
@@ -919,10 +942,32 @@ int main(int argc, char *argv[])
             }
             else
             {
-                // Action print DATA
-                // printf("REC from the socket\n");
-                // printf("Received from sock...  : ");
+// Action print DATA
+// printf("REC from the socket\n");
+// printf("Received from sock...  : ");
+#ifdef USR
+                // The welcome message.
+                if (strlen(buffFullMessage.welcomeMessage) > 1)
+                {
+                    printf("%s", buffFullMessage.welcomeMessage);
+                }
+                else
+                {
+                    // A message from a user.
+                    if (strncmp(buffFullMessage.message, "/QUIT", 5) == 0)
+                    {
+                        printf("%s left the server.\n", buffFullMessage.username);
+                        printf("bye!\n");
+                    }
+                    else
+                    {
+                        printf("%s: %s", buffFullMessage.username,
+                               buffFullMessage.message);
+                    }
+                }
+#else
                 printf("%s", message);
+#endif
                 fflush(stdout);
                 // if FILEIO is defined we check if the client is requesting a
                 // file by typing this command /GET fileName.
