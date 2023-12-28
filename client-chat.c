@@ -283,6 +283,7 @@ int main(int argc, char *argv[])
 #ifdef USR
     int shmfd;           // File descriptor for the shared memory object
     struct Table *table; // Pointer to the shared Table
+    struct Table *tableClient;
     ssize_t structSize;
 
     char clientUsername[MAX_USERNAME_LEN];
@@ -360,21 +361,21 @@ int main(int argc, char *argv[])
             CHECK(fstat(shmfd, &stbufshm));
 
             // We project it in memory.
-            struct Table *table = mmap(NULL, stbufshm.st_size, PROT_READ | PROT_WRITE,
-                                       MAP_SHARED, shmfd, 0);
+            tableClient = mmap(NULL, stbufshm.st_size, PROT_READ | PROT_WRITE,
+                               MAP_SHARED, shmfd, 0);
 
-            if (table == MAP_FAILED)
+            if (tableClient == MAP_FAILED)
             {
                 perror("Map failed");
                 CHECK(close(shmfd));
             }
 
-            printf("countClient : %d\n", table->countClients);
-            CHECK(sem_wait(&table->semCountClient));
-            table->countClients++;
-            CHECK(sem_post(&table->semCountClient));
+            printf("countClient : %d\n", tableClient->countClients);
+            CHECK(sem_wait(&tableClient->semCountClient));
+            tableClient->countClients++;
+            CHECK(sem_post(&tableClient->semCountClient));
 
-            printf("countClient : %d\n", table->countClients);
+            printf("countClient : %d\n", tableClient->countClients);
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
@@ -575,10 +576,34 @@ int main(int argc, char *argv[])
             }
 #endif
 
+#ifdef USR
+
+            printf("table count : %d\n", tableClient->countClients);
+            // Iterate through clients and send message to all except the sender
+            // for (int i = table->countClients; i >= 0; i--)
+            // {
+            //     // Check if the client is not the sender
+            //     if (memcmp(&table->clientsLst[i].address, &clientStorage, sizeof(clientStorage)) == 0)
+            //     {
+            //         // Send message to client[i]
+            //         // CHECK(sendto(sockfd, message, strlen(message), 0,
+            //         //              (struct sockaddr *)&table->clientsLst[i].address,
+            //         //              sizeof(table->clientsLst[i].address)));
+            //         printf("are the same.");
+            //     }
+            //     else
+            //     {
+            //         printf("Are not the same.");
+            //     }
+
+            //     printf("   %d\n", table->countClients);
+            // }
+#else
             // And Then we transmit the data.
             CHECK(sendto(sockfd, message, strlen(message), 0,
                          (struct sockaddr *)&clientStorage,
                          clientLen));
+#endif
 
 #ifdef FILEIO
             // The client.
