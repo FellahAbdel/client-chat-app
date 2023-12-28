@@ -372,12 +372,10 @@ int main(int argc, char *argv[])
                 CHECK(close(shmfd));
             }
 
-            printf("countClient : %d\n", tableClient->countClients);
             CHECK(sem_wait(&tableClient->semCountClient));
             tableClient->countClients++;
             CHECK(sem_post(&tableClient->semCountClient));
 
-            printf("countClient : %d\n", tableClient->countClients);
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
@@ -504,20 +502,19 @@ int main(int argc, char *argv[])
 
                     checkSnprintf(result, MAX_WELCOME_MSG);
 
-                    printf("countclient : %d\n", table->countClients);
                     // We must inform everyone before him in the chat room
                     //( so a broadcast)
                     // if there's only one user then no need to inform him
                     if (table->countClients >= 1)
                     {
-                        printf("got here\n");
+                        // printf("got here\n");
                         // There is at least two users.
-                        printf("t - 1 : %d\n", table->countClients - 1);
+                        // printf("t - 1 : %d\n", table->countClients - 1);
                         for (int i = table->countClients - 1; i >= 0; i--)
                         {
                             // We inform all of them except the last to one
                             // to join.
-                            printf("got here here.\n");
+                            // printf("got here here.\n");
                             CHECK(sendto(sockfd, welcomeMessage, strlen(welcomeMessage), 0,
                                          (struct sockaddr *)&table->clientsLst[i].address,
                                          sizeof(table->clientsLst[i].address)));
@@ -565,6 +562,10 @@ int main(int argc, char *argv[])
             // spécifique
 
             fgets(message, MAX_MSG_LEN, stdin);
+            // int c;
+            // while ((c = getchar()) != '\n' && c != EOF)
+            // Clear input buffer
+
             // printf("Sending: %s", message);
 
             // We load the data to transmit.
@@ -579,26 +580,30 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USR
-            // Client name in stored clientUsername
-            if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
+            // We don't send empty message.
+            if (message[0] != '\n' && message[0] != '\0')
             {
-                fprintf(stderr, "Sprintf failed.");
-                exit(EXIT_FAILURE);
-            }
-
-            // Iterate through clients and send message to all except the sender
-            for (int i = tableClient->countClients; i >= 0; i--)
-            {
-                // Check if the client is not the sender
-                if (strcmp(tableClient->clientsLst[i].username, clientUsername) != 0)
+                // Client name in stored clientUsername
+                if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
                 {
-                    // They are different.
-                    // Send message to client[i]
-                    CHECK(sendto(sockfd, fullMessage, strlen(fullMessage), 0,
-                                 (struct sockaddr *)&tableClient->clientsLst[i].address,
-                                 sizeof(tableClient->clientsLst[i].address)));
+                    fprintf(stderr, "Sprintf failed.");
+                    exit(EXIT_FAILURE);
+                }
+                // Iterate through clients and send message to all except the sender
+                for (int i = tableClient->countClients; i >= 0; i--)
+                {
+                    // Check if the client is not the sender
+                    if (strcmp(tableClient->clientsLst[i].username, clientUsername) != 0)
+                    {
+                        // They are different.
+                        // Send message to client[i]
+                        CHECK(sendto(sockfd, fullMessage, strlen(fullMessage), 0,
+                                     (struct sockaddr *)&tableClient->clientsLst[i].address,
+                                     sizeof(tableClient->clientsLst[i].address)));
+                    }
                 }
             }
+
 #else
             // And Then we transmit the data.
             CHECK(sendto(sockfd, message, strlen(message), 0,
