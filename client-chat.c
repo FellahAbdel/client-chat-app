@@ -176,7 +176,7 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 
 #define MEMNAME "/table"
 
-#define MAX_CLIENTS 2
+#define MAX_CLIENTS 4
 #define MAX_USERNAME_LEN 20
 #define MAX_WELCOME_MSG 10 + MAX_USERNAME_LEN
 
@@ -288,10 +288,12 @@ int main(int argc, char *argv[])
     checkPortNumber(portNumber);
 
 #ifdef USR
-    int shmfd;           // File descriptor for the shared memory object
+    int shmfd; // File descriptor for the shared memory object
+    int shmfdclient;
     struct Table *table; // Pointer to the shared Table
     struct Table *tableClient;
     ssize_t structSize;
+    struct stat stbufshmClient;
 
     char clientUsername[MAX_USERNAME_LEN];
     char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
@@ -362,23 +364,22 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USR
-            int shmfd;
-            struct stat stbufshm;
 
             // We open the shared segment.
-            CHECK(shmfd = shm_open(MEMNAME, O_RDWR, 0));
+            CHECK(shmfdclient = shm_open(MEMNAME, O_RDWR, 0));
 
             // We get the length of the shared memory object.
-            CHECK(fstat(shmfd, &stbufshm));
+            CHECK(fstat(shmfdclient, &stbufshmClient));
 
             // We project it in memory.
-            tableClient = mmap(NULL, stbufshm.st_size, PROT_READ | PROT_WRITE,
-                               MAP_SHARED, shmfd, 0);
+            tableClient = mmap(NULL, stbufshmClient.st_size,
+                               PROT_READ | PROT_WRITE, MAP_SHARED, shmfdclient,
+                               0);
 
             if (tableClient == MAP_FAILED)
             {
                 perror("Map failed");
-                CHECK(close(shmfd));
+                CHECK(close(shmfdclient));
             }
 
             // initially countClients is equal to -1.
@@ -507,8 +508,10 @@ int main(int argc, char *argv[])
 
                         // We only fill the welcome message variable.
                         struct FullMessage fullMessage = {0};
-                        int result = snprintf(fullMessage.welcomeMessage, MAX_WELCOME_MSG,
-                                              "%s join the server\n", clientUsername);
+                        int result = snprintf(fullMessage.welcomeMessage,
+                                              MAX_WELCOME_MSG,
+                                              "%s join the server\n",
+                                              clientUsername);
 
                         checkSnprintf(result, MAX_WELCOME_MSG);
 
@@ -534,9 +537,9 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
-                        // We decrement or we will have destination addr error in
-                        // the main loop, because we increment it above even though there weren't
-                        // a place for him.
+                        // We decrement or we will have destination addr error
+                        // in the main loop, because we increment it above even
+                        // though there weren't a place for him.
                         CHECK(sem_wait(&table->semCountClient));
                         table->countClients--;
                         CHECK(sem_post(&table->semCountClient));
@@ -553,7 +556,7 @@ int main(int argc, char *argv[])
                         // we have to tell him to quit.
                         fflush(stdout);
                     }
-                }
+                } // END a user entered a name.
 
                 waiting = 1; // We keep waiting for new usr.
 #endif
@@ -985,6 +988,11 @@ int main(int argc, char *argv[])
                     if (strncmp(buffFullMessage.welcomeMessage, "/QUIT", 5) == 0)
                     {
                         printf("This group is full, you cannot join it.\n");
+                        // Unmap the shared memory object
+                        CHECK(munmap(tableClient, stbufshmClient.st_size));
+
+                        // Close the shared memory object
+                        CHECK(close(shmfdclient));
                         running = 0;
                     }
                     else
