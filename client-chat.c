@@ -552,7 +552,7 @@ int main(int argc, char *argv[])
     int running = 1;
     while (running)
     {
-        printf("got in the main loop\n");
+        // printf("got in the main loop\n");
         int activity;
         CHECK(activity = poll(fds, 2, -1)); // -1 une attente indéfini.
 
@@ -583,17 +583,13 @@ int main(int argc, char *argv[])
             for (int i = tableClient->countClients; i >= 0; i--)
             {
                 // Check if the client is not the sender
-                if (strcmp(tableClient->clientsLst[i].username, clientUsername) == 0)
+                if (strcmp(tableClient->clientsLst[i].username, clientUsername) != 0)
                 {
+                    // They are different.
                     // Send message to client[i]
-                    // CHECK(sendto(sockfd, message, strlen(message), 0,
-                    //              (struct sockaddr *)&table->clientsLst[i].address,
-                    //              sizeof(table->clientsLst[i].address)));
-                    printf("are the same.");
-                }
-                else
-                {
-                    printf("Are not the same.");
+                    CHECK(sendto(sockfd, message, strlen(message), 0,
+                                 (struct sockaddr *)&tableClient->clientsLst[i].address,
+                                 sizeof(tableClient->clientsLst[i].address)));
                 }
             }
 #else
