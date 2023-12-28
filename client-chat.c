@@ -905,8 +905,18 @@ int main(int argc, char *argv[])
             // running is 0 if message is equal to QUIT, so we quit the loop.
             running = !(message[0] == QUIT);
 #else
+
             // Same here folks.
-            running = !(strncmp(message, "/QUIT", 5) == 0);
+            if (strncmp(message, "/QUIT", 5) == 0)
+            {
+#ifdef USR
+                // before quitting we have the decrement the countClients var
+                CHECK(sem_wait(&tableClient->semCountClient));
+                tableClient->countClients--;
+                CHECK(sem_post(&tableClient->semCountClient));
+#endif
+                running = 0;
+            }
 #endif
         }
 
