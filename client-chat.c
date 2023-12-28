@@ -176,7 +176,7 @@ void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
 
 #define MEMNAME "/table"
 
-#define MAX_CLIENTS 10
+#define MAX_CLIENTS 2
 #define MAX_USERNAME_LEN 20
 #define MAX_WELCOME_MSG 10 + MAX_USERNAME_LEN
 
@@ -381,6 +381,7 @@ int main(int argc, char *argv[])
                 CHECK(close(shmfd));
             }
 
+            // initially countClients is equal to -1.
             CHECK(sem_wait(&tableClient->semCountClient));
             tableClient->countClients++;
             CHECK(sem_post(&tableClient->semCountClient));
@@ -495,40 +496,62 @@ int main(int argc, char *argv[])
 
                 if (clientUsername[0] != '\0')
                 {
-                    // printf("hello %s\n", clientUsername);
-
-                    strcpy(table->clientsLst[table->countClients].username,
-                           clientUsername);
-
-                    // We have to store the client informations.
-                    table->clientsLst[table->countClients].address =
-                        clientStorage;
-
-                    // We only fill the welcome message variable.
-                    struct FullMessage fullMessage = {0};
-                    int result = snprintf(fullMessage.welcomeMessage, MAX_WELCOME_MSG,
-                                          "%s join the server\n", clientUsername);
-
-                    checkSnprintf(result, MAX_WELCOME_MSG);
-
-                    // We must inform everyone before him in the chat room
-                    //( so a broadcast)
-                    // if there's only one user then no need to inform him
-                    if (table->countClients >= 1)
+                    if (table->countClients < table->maxClients)
                     {
-                        // printf("got here\n");
-                        // There is at least two users.
-                        // printf("t - 1 : %d\n", table->countClients - 1);
-                        for (int i = table->countClients - 1; i >= 0; i--)
+                        strcpy(table->clientsLst[table->countClients].username,
+                               clientUsername);
+
+                        // We have to store the client informations.
+                        table->clientsLst[table->countClients].address =
+                            clientStorage;
+
+                        // We only fill the welcome message variable.
+                        struct FullMessage fullMessage = {0};
+                        int result = snprintf(fullMessage.welcomeMessage, MAX_WELCOME_MSG,
+                                              "%s join the server\n", clientUsername);
+
+                        checkSnprintf(result, MAX_WELCOME_MSG);
+
+                        // We must inform everyone before him in the chat room
+                        //( so a broadcast)
+                        // if there's only one user then no need to inform him
+                        if (table->countClients >= 1)
                         {
-                            // We inform all of them except the last to one
-                            // to join.
-                            // printf("got here here.\n");
-                            CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage), 0,
-                                         (struct sockaddr *)&table->clientsLst[i].address,
-                                         sizeof(table->clientsLst[i].address)));
-                            // sleep(1);
+                            // printf("got here\n");
+                            // There is at least two users.
+                            // printf("t - 1 : %d\n", table->countClients - 1);
+                            for (int i = table->countClients - 1; i >= 0; i--)
+                            {
+                                // We inform all of them except the last to one
+                                // to join.
+                                // printf("got here here.\n");
+                                CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage), 0,
+                                             (struct sockaddr *)&table->clientsLst[i].address,
+                                             sizeof(table->clientsLst[i].address)));
+                                // sleep(1);
+                            }
                         }
+                    }
+                    else
+                    {
+                        // We decrement or we will have destination addr error in
+                        // the main loop, because we increment it above even though there weren't
+                        // a place for him.
+                        CHECK(sem_wait(&table->semCountClient));
+                        table->countClients--;
+                        CHECK(sem_post(&table->semCountClient));
+
+                        printf("Server is full.\n");
+
+                        struct FullMessage fullMessage = {0};
+                        strcpy(fullMessage.welcomeMessage, "/QUIT");
+
+                        // We make him to quit the server.
+                        CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage),
+                                     0, (struct sockaddr *)&clientStorage,
+                                     sizeof(clientStorage)));
+                        // we have to tell him to quit.
+                        fflush(stdout);
                     }
                 }
 
@@ -959,7 +982,15 @@ int main(int argc, char *argv[])
                 // The welcome message.
                 if (strlen(buffFullMessage.welcomeMessage) > 1)
                 {
-                    printf("%s", buffFullMessage.welcomeMessage);
+                    if (strncmp(buffFullMessage.welcomeMessage, "/QUIT", 5) == 0)
+                    {
+                        printf("This group is full, you cannot join it.\n");
+                        running = 0;
+                    }
+                    else
+                    {
+                        printf("%s", buffFullMessage.welcomeMessage);
+                    }
                 }
                 else
                 {
