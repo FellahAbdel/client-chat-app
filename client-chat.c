@@ -143,33 +143,6 @@ void createFilePath(const char *fileName, char option, char *outputPath)
         exit(EXIT_FAILURE);
     }
 }
-
-void usageFileIO(char *programName)
-{
-    fprintf(stderr, "usage: %s serverName fileName\n", programName);
-    exit(EXIT_FAILURE);
-}
-
-void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
-              const char *fileName)
-{
-    FILE *file = fopen(fileName, "rb"); // Ouvrir le fichier en mode lecture binaire ("rb")
-    if (file == NULL)
-    {
-        perror("fopen");
-        return;
-    }
-
-    char buffer[MAX_MSG_LEN];
-    size_t bytesRead;
-
-    while ((bytesRead = fread(buffer, 1, MAX_MSG_LEN, file)) > 0)
-    {
-        CHECK(sendto(sockfd, buffer, bytesRead, 0, clientStorage, clientLen));
-    }
-
-    fclose(file);
-}
 #endif
 
 #ifdef USR
