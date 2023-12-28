@@ -200,26 +200,6 @@ struct FullMessage
     char username[MAX_USERNAME_LEN];
     char message[MAX_MSG_LEN];
 };
-
-// Function to broadcast a message to all clients except the sender
-// void broadcastMessage(const char *senderUsername, const char *message)
-// {
-//     int sockfd = 3;
-//     // Loop through current clients.
-//     for (int i = 0; i < countClients; ++i)
-//     {
-//         // If it's not the sender.
-//         if (strcmp(clients[i].username, senderUsername) != 0)
-//         {
-//             char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
-//             sprintf(fullMessage, "%s: %s", senderUsername, message);
-
-//             sendto(sockfd, fullMessage, strlen(fullMessage), 0,
-//                    (struct sockaddr *)&clients[i].address, sizeof(clients[i].address));
-//         }
-//     }
-// }
-
 #endif
 
 void checkSnprintf(int result, int max)
@@ -275,14 +255,6 @@ int main(int argc, char *argv[])
     int recvResult;
 
 #endif
-    // #ifdef FILEIO
-    //     if (argc != 3)
-    //     {
-    //         usageFileIO(argv[0]);
-    //         exit(EXIT_FAILURE);
-    //     }
-    // #endif
-
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
@@ -297,11 +269,6 @@ int main(int argc, char *argv[])
 
     char clientUsername[MAX_USERNAME_LEN];
     char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
-    // char welcomeMessage[MAX_WELCOME_MSG];
-    // char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
-    // struct FullMessage fullMessage = {0};
-    // struct FullMessage buffFullMessage = {0};
-
 #endif
 
     /* create socket */
@@ -330,8 +297,6 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            // printf("L'adresse IP et le port sont déjà utilisés par un autre"
-            //             "processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
@@ -422,8 +387,8 @@ int main(int argc, char *argv[])
             perror("mmap");
             exit(EXIT_FAILURE);
         }
+
         // We init here the client counts otherwise each time a client join
-        //
         table->countClients = -1; // we start counting from 0 (1 client)
         table->maxClients = MAX_CLIENTS;
         CHECK(sem_init(&table->semCountClient, 1, 1));
@@ -597,11 +562,6 @@ int main(int argc, char *argv[])
             // spécifique
 
             fgets(message, MAX_MSG_LEN, stdin);
-            // int c;
-            // while ((c = getchar()) != '\n' && c != EOF)
-            // Clear input buffer
-
-            // printf("Sending: %s", message);
 
             // We load the data to transmit.
 #ifdef BIN
@@ -623,13 +583,7 @@ int main(int argc, char *argv[])
                 // strcpy(fullMessage.username, clientUsername);
                 sprintf(fullMessage.username, "%s", clientUsername);
                 sprintf(fullMessage.message, "%s", message);
-                // strcpy(fullMessage.message, message);
-                // // Client name in stored clientUsername
-                // if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
-                // {
-                //     fprintf(stderr, "Sprintf failed.");
-                //     exit(EXIT_FAILURE);
-                // }
+
                 // Iterate through clients and send message to all except the sender
                 for (int i = tableClient->countClients; i >= 0; i--)
                 {
@@ -949,6 +903,7 @@ int main(int argc, char *argv[])
                         if (strcmp(tableClient->clientsLst[i].username,
                                    fullMessage.username) == 0)
                         {
+                            // we replace the client whose gone by the last one.
                             tableClient->clientsLst[i] =
                                 tableClient->clientsLst[tableClient->countClients];
                             tableClient->countClients--;
@@ -1315,14 +1270,6 @@ int main(int argc, char *argv[])
 
     /* close socket */
     CHECK(close(sockfd));
-
-    // #ifdef USR
-    //     // Unmap the shared memory object
-    //     CHECK(munmap(table, structSize));
-
-    //     // Close the shared memory object
-    //     CHECK(close(shmfd));
-    // #endif
     /* free memory */
     return 0;
 }
