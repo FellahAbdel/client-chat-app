@@ -289,6 +289,8 @@ int main(int argc, char *argv[])
     char clientUsername[MAX_USERNAME_LEN];
     char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
     char welcomeMessage[MAX_WELCOME_MSG];
+    char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
+
 #endif
 
     /* create socket */
@@ -578,6 +580,11 @@ int main(int argc, char *argv[])
 
 #ifdef USR
             // Client name in stored clientUsername
+            if (sprintf(fullMessage, "%s: %s", clientUsername, message) < 0)
+            {
+                fprintf(stderr, "Sprintf failed.");
+                exit(EXIT_FAILURE);
+            }
 
             // Iterate through clients and send message to all except the sender
             for (int i = tableClient->countClients; i >= 0; i--)
@@ -587,7 +594,7 @@ int main(int argc, char *argv[])
                 {
                     // They are different.
                     // Send message to client[i]
-                    CHECK(sendto(sockfd, message, strlen(message), 0,
+                    CHECK(sendto(sockfd, fullMessage, strlen(fullMessage), 0,
                                  (struct sockaddr *)&tableClient->clientsLst[i].address,
                                  sizeof(tableClient->clientsLst[i].address)));
                 }
@@ -911,7 +918,7 @@ int main(int argc, char *argv[])
                 // printf("REC from the socket\n");
                 // printf("Received from sock...  : ");
                 printf("%s", message);
-
+                fflush(stdout);
                 // if FILEIO is defined we check if the client is requesting a
                 // file by typing this command /GET fileName.
 #ifdef FILEIO
