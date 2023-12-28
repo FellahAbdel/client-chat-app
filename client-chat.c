@@ -577,27 +577,25 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef USR
+            // Client name in stored clientUsername
 
-            printf("table count : %d\n", tableClient->countClients);
             // Iterate through clients and send message to all except the sender
-            // for (int i = table->countClients; i >= 0; i--)
-            // {
-            //     // Check if the client is not the sender
-            //     if (memcmp(&table->clientsLst[i].address, &clientStorage, sizeof(clientStorage)) == 0)
-            //     {
-            //         // Send message to client[i]
-            //         // CHECK(sendto(sockfd, message, strlen(message), 0,
-            //         //              (struct sockaddr *)&table->clientsLst[i].address,
-            //         //              sizeof(table->clientsLst[i].address)));
-            //         printf("are the same.");
-            //     }
-            //     else
-            //     {
-            //         printf("Are not the same.");
-            //     }
-
-            //     printf("   %d\n", table->countClients);
-            // }
+            for (int i = tableClient->countClients; i >= 0; i--)
+            {
+                // Check if the client is not the sender
+                if (strcmp(tableClient->clientsLst[i].username, clientUsername) == 0)
+                {
+                    // Send message to client[i]
+                    // CHECK(sendto(sockfd, message, strlen(message), 0,
+                    //              (struct sockaddr *)&table->clientsLst[i].address,
+                    //              sizeof(table->clientsLst[i].address)));
+                    printf("are the same.");
+                }
+                else
+                {
+                    printf("Are not the same.");
+                }
+            }
 #else
             // And Then we transmit the data.
             CHECK(sendto(sockfd, message, strlen(message), 0,
