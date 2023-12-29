@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
             // ClientStorage get the server address, so that in the main loop
             // even though the client start first to send message there won't
             // be an error.
-            memcpy(&clientStorage, &existingUserAddr, sizeof(struct sockaddr_storage));
+            memcpy(&clientStorage, &existingUserAddr, sizeof(existingUserAddr));
 #endif
         } // END errno = EADRINUSE.
         else
