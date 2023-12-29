@@ -2,7 +2,7 @@ stages:
   - build
   - test
 
-image: montavont/algodesreseaux
+image: registry.app.unistra.fr/montavont/img-docker/image
 
 build_12:
   stage: build
