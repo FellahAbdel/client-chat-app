@@ -187,7 +187,6 @@ void checkSnprintf(int result, int max)
 int main(int argc, char *argv[])
 {
     int sockfd;
-    (void)sockfd;
     ssize_t bytesRecv;
     char host[NI_MAXHOST];
     char service[NI_MAXSERV];
