@@ -329,6 +329,12 @@ int main(int argc, char *argv[])
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
+#ifdef FILEIO
+            // ClientStorage get the server address, so that in the main loop
+            // even though the client start first to send message there won't
+            // be an error.
+            memcpy(&clientStorage, &existingUserAddr, sizeof(struct sockaddr_storage));
+#endif
         }
         else
         {
