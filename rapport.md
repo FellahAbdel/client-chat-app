@@ -8,6 +8,12 @@ date: 06/10/2023
 
 ## 1. Introduction
 
+Cette suite du projet a été axée sur l'intégration de fonctionnalités majeures, comprenant :
+
+1. Protocole en mode binaire : l'application de messagerie a été dotée d'un protocole de communication utilisant un format binaire, favorisant des échanges de données plus fiables, moins volumineuses et plus efficaces.
+2. Transfert de fichier : Une fonctionnalité de transfert de fichier a été implémentée, permettant à deux utilisateurs (server et client) de s'échanger des fichiers (binaires) de différentes tailles et types.
+3. Une gestion évoluée des utilisateurs est mise en place, où un serveur reste en attente de l'arrivée des N utilisateurs pour participer à la discussion. Cette gestion garantit une prise en charge efficace lorsqu'un client se déconnecte de la conversation, tout en incluant d'autres fonctionnalités visant à améliorer l'expérience globale des utilisateurs.
+
 ## 2. Machine à états finale.
 
 ## 3. Protocole en mode binaire
@@ -316,6 +322,14 @@ En effet, deux commandes sont indispensables pour le bon fonctionnement de cette
 
    ```
 
+Voici un visuel du transfert de fichier :
+
+- /GET README.md
+  ![get filename](./get-filename.png)
+
+- /PUT README.md
+  ![put filename](./put-filename.png)
+
 ## 5. Gestion avancées des utilisateurs.
 
 Pour cette fonctionnalité, j'avais besoin d'une variable initialisée à 0 lorsque le serveur est lancé qui sert de compteur pour chaque nouveau utilisateur rejoignant le chat mais il s'est avéré qu'à chaque nouvelle instance d'un processus client la variable qui faisait le compte est remis à nouveau 0. Pour résoudre ce problème, j'ai envisagé d'utiliser un segment de mémoire partager appeler `/table`. Ce segment contient une structure spécifique qui comprend les informations nécessaires suivantes:
@@ -449,7 +463,7 @@ Le champ `welcomeMessage[MAX_WELCOME_MSG]` ne peut contenir que deux messages po
      }
   ```
 
-De surcroit, qu'est-ce qui se passe lorsqu'un utilisateur quitte le salon? si c'est le dernier à rejoindre qui sort du salon alors on peut se résoudre à juste dimunier la taille du tableau contenant les addresses des clients (`struct ClientInfo clientsLst[]`). Mais et si dans un salon de 5 utilisateurs, le 2ème quitte, dans ce cas-ci il faudra faire plus qu'une décrémentation. L'algorithme que j'ai implementé est le suivant, dans notre exemple, je copie le dernier qui est le 5ème utilisateur à la place du 2ème et je diminue la taille du tableau. Voici le code :
+De plus, que se passe-t-il lorsqu'un utilisateur quitte le salon ? Si c'est le dernier à avoir rejoint qui sort du salon, alors on peut simplement réduire la taille du tableau contenant les adresses des clients (`struct ClientInfo clientsLst[]`). Mais si, dans un salon de 5 utilisateurs, le 2ème quitte, dans ce cas précis, il faudra effectuer plus qu'une simple décrémentation. L'algorithme que j'ai implémenté est le suivant : dans notre exemple, je déplace le dernier utilisateur, qui est le 5ème, à la place du 2ème, puis je réduis la taille du tableau. Vous trouverez ci-dessous l'implémentation de l'algorithme précédemment décrit :
 
 ```c
             // Same here folks.
@@ -485,3 +499,16 @@ De surcroit, qu'est-ce qui se passe lorsqu'un utilisateur quitte le salon? si c'
                 running = 0;
             }
 ```
+
+Voici une représentation visuelle illustrant une simulation de la salle de discussion :
+![Simulation du salon de discussion](./chat-demo.png)
+
+## 6. Conclusion
+
+L'implémentation du projet a réussi à atteindre les fonctionnalités prévues, mais elle a rencontré certaines limitations et défis.
+
+Tout d'abord, pour le mode binaire, la factorisation du code afin d'éviter au maximum les instructions redondantes a été le principal défi pour moi concernant cette partie. Comme vous l'avez vu, je n'ai utilisé aucune structure, juste deux constantes `QUIT` et `HELO`, chacune ayant une taille d'un octet.
+
+En ce qui concerne le transfert de fichiers, qui représente les deux tiers du code, je trouve qu'il y a des instructions répétitives dans la gestion des commandes `/GET [nom du fichier]` et `/PUT [nom du fichier]`. Je pourrais donc normalement le factoriser davantage. L'autre problème est que c'est commande doivent être lancé par le client et il faut savoir identifier le terminal du serveur et du client qui est le deuxième programme à être lancer et cela n'est pas du tout une façon souple de le faire et donc c'est pas "USER FRIENDLY".
+
+Finalement, une limitation majeure pour le cas de N utilisateurs est que ce projet ne fonctionnerait que sur un seul ordinateur en raison du segment de mémoire partagée. De plus, il y a quatres subtilités dont je suis vraiment fier. Tout d'abord, l'idée d'utiliser un segment de mémoire partagée, car je pensais que je n'allais pas vraiment trouver de solution. Ensuite, savoir à quelle partie du code il fallait écrire le code de création et d'initialisation du segment, qui devrait se faire uniquement par le serveur. Ensuite, la nécessité d'avoir deux variables `table` et `tableClient` de type `struct Table`. Enfin, l'utilisation de l'algorithme pour gérer le départ d'un utilisateur du salon de discussion.

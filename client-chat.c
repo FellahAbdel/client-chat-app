@@ -273,8 +273,6 @@ int main(int argc, char *argv[])
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            printf("I'm a client sending /HELO to the server to initiate a"
-                   "connection\n");
 
             // Store existing user address otherwise it won't work.
             struct sockaddr_in6 existingUserAddr = serverAddr;
@@ -335,13 +333,13 @@ int main(int argc, char *argv[])
             // be an error.
             memcpy(&clientStorage, &existingUserAddr, sizeof(struct sockaddr_storage));
 #endif
-        }
+        } // END errno = EADRINUSE.
         else
         {
             perror("bind");
             exit(EXIT_FAILURE);
         }
-    }
+    } // END if bind.
     else
     {
 
@@ -373,13 +371,12 @@ int main(int argc, char *argv[])
         CHECK(sem_init(&table->semCountClient, 1, 1));
 
 #endif
-        printf("I'm the program server, waiting for connection...\n");
         /*
         Event: recv / HELO
         Action : print remote addr and port
         */
+
         int waiting = 1;
-        // printf("Waiting...\n");
         while (waiting)
         {
             void *genericPtr = NULL;
@@ -414,7 +411,6 @@ int main(int argc, char *argv[])
                 waiting = 0; // Stop waiting
             }
 
-            printf("Received binary msg.\n");
             fflush(stdout);
 
             free(genericPtr); // Free allocated memory
@@ -464,7 +460,6 @@ int main(int argc, char *argv[])
                         // if there's only one user then no need to inform him
                         if (table->countClients >= 1)
                         {
-                            // printf("got here\n");
                             // There is at least two users.
                             // printf("t - 1 : %d\n", table->countClients - 1);
                             for (int i = table->countClients - 1; i >= 0; i--)
@@ -475,7 +470,6 @@ int main(int argc, char *argv[])
                                 CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage), 0,
                                              (struct sockaddr *)&table->clientsLst[i].address,
                                              sizeof(table->clientsLst[i].address)));
-                                // sleep(1);
                             }
                         }
                     }
@@ -497,7 +491,6 @@ int main(int argc, char *argv[])
                         CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage),
                                      0, (struct sockaddr *)&clientStorage,
                                      sizeof(clientStorage)));
-                        // we have to tell him to quit.
                         fflush(stdout);
                     }
                 } // END a user entered a name.
@@ -525,21 +518,17 @@ int main(int argc, char *argv[])
 
     char message[MAX_MSG_LEN] = {0};
 
-    // printf("Connected..\n");
     /* main loop */
     int running = 1;
     while (running)
     {
-        // printf("got in the main loop\n");
         int activity;
         CHECK(activity = poll(fds, 2, -1)); // -1 une attente indéfini.
 
         // Waiting an event from the keyboard.
         if (fds[0].revents & POLLIN)
         {
-            // Envoyer la commande /QUIT au serveur ou à une adresse
-            // spécifique
-
+            // Event occurred from the keyboard.
             fgets(message, MAX_MSG_LEN, stdin);
 
             // We load the data to transmit.
@@ -933,9 +922,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-// Action print DATA
-// printf("REC from the socket\n");
-// printf("Received from sock...  : ");
+                // Action print DATA
 #ifdef USR
                 // The welcome message.
                 if (strlen(buffFullMessage.welcomeMessage) > 1)
@@ -973,6 +960,7 @@ int main(int argc, char *argv[])
                 printf("%s", message);
 #endif
                 fflush(stdout);
+
                 // if FILEIO is defined we check if the client is requesting a
                 // file by typing this command /GET fileName.
 #ifdef FILEIO
@@ -1249,6 +1237,5 @@ int main(int argc, char *argv[])
 
     /* close socket */
     CHECK(close(sockfd));
-    /* free memory */
     return 0;
 }
