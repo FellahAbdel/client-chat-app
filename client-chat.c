@@ -38,6 +38,13 @@ SOFTWARE.
 #include <sys/stat.h>
 #include <limits.h>
 
+#ifdef USR
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <semaphore.h>
+#endif
+
 #define CHECK(op)               \
     do                          \
     {                           \
@@ -136,69 +143,46 @@ void createFilePath(const char *fileName, char option, char *outputPath)
         exit(EXIT_FAILURE);
     }
 }
-
-void usageFileIO(char *programName)
-{
-    fprintf(stderr, "usage: %s serverName fileName\n", programName);
-    exit(EXIT_FAILURE);
-}
-
-void sendFile(int sockfd, struct sockaddr *clientStorage, socklen_t clientLen,
-              const char *fileName)
-{
-    FILE *file = fopen(fileName, "rb"); // Ouvrir le fichier en mode lecture binaire ("rb")
-    if (file == NULL)
-    {
-        perror("fopen");
-        return;
-    }
-
-    char buffer[MAX_MSG_LEN];
-    size_t bytesRead;
-
-    while ((bytesRead = fread(buffer, 1, MAX_MSG_LEN, file)) > 0)
-    {
-        CHECK(sendto(sockfd, buffer, bytesRead, 0, clientStorage, clientLen));
-    }
-
-    fclose(file);
-}
 #endif
 
 #ifdef USR
 
-#define MAX_CLIENTS 10
+#define MEMNAME "/table"
+
+#define MAX_CLIENTS 4
 #define MAX_USERNAME_LEN 20
+#define MAX_WELCOME_MSG 10 + MAX_USERNAME_LEN
 
-typedef struct
+struct ClientInfo
 {
-    struct sockaddr_in6 address;
+    struct sockaddr_storage address;
     char username[MAX_USERNAME_LEN];
-} ClientInfo;
+};
 
-static int countClients = 0;
-ClientInfo clients[MAX_CLIENTS];
-
-// Function to broadcast a message to all clients except the sender
-void broadcastMessage(const char *senderUsername, const char *message)
+struct Table
 {
-    int sockfd = 3;
-    // Loop through current clients.
-    for (int i = 0; i < countClients; ++i)
-    {
-        // If it's not the sender.
-        if (strcmp(clients[i].username, senderUsername) != 0)
-        {
-            char fullMessage[MAX_MSG_LEN + MAX_USERNAME_LEN + 3]; // 3 for ": "
-            sprintf(fullMessage, "%s: %s", senderUsername, message);
+    int maxClients;   // MAX user that can join the chat room.
+    int countClients; //  current user in the chat room
+    sem_t semCountClient;
+    struct ClientInfo clientsLst[];
+} Table;
 
-            sendto(sockfd, fullMessage, strlen(fullMessage), 0,
-                   (struct sockaddr *)&clients[i].address, sizeof(clients[i].address));
-        }
+struct FullMessage
+{
+    char welcomeMessage[MAX_WELCOME_MSG];
+    char username[MAX_USERNAME_LEN];
+    char message[MAX_MSG_LEN];
+};
+#endif
+
+void checkSnprintf(int result, int max)
+{
+    if (result < 0 || result > max)
+    {
+        fprintf(stderr, "Erreur snprintf");
+        exit(EXIT_FAILURE);
     }
 }
-
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -215,6 +199,7 @@ int main(int argc, char *argv[])
     }
 
 #ifdef FILEIO
+    // printf("We got here.\n");
     char filePathClient[PATH_MAX];
     char filePathServer[PATH_MAX];
     char fileName[FILENAME_MAX] = {0};
@@ -243,17 +228,21 @@ int main(int argc, char *argv[])
     int recvResult;
 
 #endif
-    // #ifdef FILEIO
-    //     if (argc != 3)
-    //     {
-    //         usageFileIO(argv[0]);
-    //         exit(EXIT_FAILURE);
-    //     }
-    // #endif
-
     /* convert and check port number */
     int portNumber = atoi(argv[1]);
     checkPortNumber(portNumber);
+
+#ifdef USR
+    int shmfd; // File descriptor for the shared memory object
+    int shmfdclient;
+    struct Table *table; // Pointer to the shared Table
+    struct Table *tableClient;
+    ssize_t structSize;
+    struct stat stbufshmClient;
+
+    char clientUsername[MAX_USERNAME_LEN];
+    char bufferGreetings[10 + MAX_USERNAME_LEN]; // 5 for "/HELLO" 5 for " FROM"
+#endif
 
     /* create socket */
     CHECK(sockfd = socket(AF_INET6, SOCK_DGRAM, 0));
@@ -281,13 +270,9 @@ int main(int argc, char *argv[])
     {
         if (errno == EADDRINUSE)
         {
-            // printf("L'adresse IP et le port sont déjà utilisés par un autre"
-            //             "processus.\n");
             // Gérer l'erreur ici...
             // Action : Send /HELO.
             // Sending /HELO to the existing user occupying the port
-            printf("I'm a client sending /HELO to the server to initiate a"
-                   "connection\n");
 
             // Store existing user address otherwise it won't work.
             struct sockaddr_in6 existingUserAddr = serverAddr;
@@ -296,34 +281,102 @@ int main(int argc, char *argv[])
             uint8_t binBuff[1] = {HELO};
             const void *buff = binBuff;
             size = 1; // 1 octet.
+#elif USR
+            // In USR mode we send /HELO FROM username.
+            printf("Enter your name please : ");
+            scanf("%s", clientUsername);
+
+            int result = snprintf(bufferGreetings, 10 + MAX_USERNAME_LEN,
+                                  "/HELO FROM %s", clientUsername);
+
+            checkSnprintf(result, 10 + MAX_USERNAME_LEN);
+
+            const void *buff = bufferGreetings;
+            size = sizeof(bufferGreetings);
 #else
             const char *messageBuff = "/HELO";
             const void *buff = messageBuff;
             size = 5; // 5 caractères
 #endif
+
 #ifdef USR
-            countClients++;
-            printf("countClient : %d\n", countClients);
+
+            // We open the shared segment.
+            CHECK(shmfdclient = shm_open(MEMNAME, O_RDWR, 0));
+
+            // We get the length of the shared memory object.
+            CHECK(fstat(shmfdclient, &stbufshmClient));
+
+            // We project it in memory.
+            tableClient = mmap(NULL, stbufshmClient.st_size,
+                               PROT_READ | PROT_WRITE, MAP_SHARED, shmfdclient,
+                               0);
+
+            if (tableClient == MAP_FAILED)
+            {
+                perror("Map failed");
+                CHECK(close(shmfdclient));
+            }
+
+            // initially countClients is equal to -1.
+            CHECK(sem_wait(&tableClient->semCountClient));
+            tableClient->countClients++;
+            CHECK(sem_post(&tableClient->semCountClient));
+
 #endif
             CHECK(sendto(sockfd, buff, size, 0,
                          (struct sockaddr *)&existingUserAddr,
                          sizeof(existingUserAddr)));
-        }
+#ifdef FILEIO
+            // ClientStorage get the server address, so that in the main loop
+            // even though the client start first to send message there won't
+            // be an error.
+            memcpy(&clientStorage, &existingUserAddr, sizeof(struct sockaddr_storage));
+#endif
+        } // END errno = EADRINUSE.
         else
         {
             perror("bind");
             exit(EXIT_FAILURE);
         }
-    }
+    } // END if bind.
     else
     {
-        // printf("I'm the program server, waiting for connection...\n");
+
+#ifdef USR
+        // Only the server should execute this code .
+
+        // Create or open a shared memory object
+        CHECK(shmfd = shm_open(MEMNAME, O_CREAT | O_RDWR | O_TRUNC, 0666));
+
+        // Get the size of the structure.
+        structSize = sizeof(struct Table) +
+                     MAX_CLIENTS * sizeof(struct ClientInfo);
+
+        // Configure the size of the shared memory object
+        CHECK(ftruncate(shmfd, structSize));
+
+        // Map the shared memory object into the process's address space
+        table = mmap(NULL, structSize, PROT_READ | PROT_WRITE, MAP_SHARED,
+                     shmfd, 0);
+        if (table == MAP_FAILED)
+        {
+            perror("mmap");
+            exit(EXIT_FAILURE);
+        }
+
+        // We init here the client counts otherwise each time a client join
+        table->countClients = -1; // we start counting from 0 (1 client)
+        table->maxClients = MAX_CLIENTS;
+        CHECK(sem_init(&table->semCountClient, 1, 1));
+
+#endif
         /*
         Event: recv / HELO
         Action : print remote addr and port
         */
+
         int waiting = 1;
-        // printf("Waiting...\n");
         while (waiting)
         {
             void *genericPtr = NULL;
@@ -345,9 +398,11 @@ int main(int argc, char *argv[])
             genericPtr = (void *)receivedText;
 
 #endif
+
             CHECK(bytesRecv = recvfrom(sockfd, genericPtr, MAX_MSG_LEN - 1, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
+
 #ifdef BIN
             if (*(uint8_t *)genericPtr == HELO)
             {
@@ -356,7 +411,6 @@ int main(int argc, char *argv[])
                 waiting = 0; // Stop waiting
             }
 
-            printf("Received binary msg.\n");
             fflush(stdout);
 
             free(genericPtr); // Free allocated memory
@@ -372,6 +426,77 @@ int main(int argc, char *argv[])
                 displayClientInfo((struct sockaddr *)&clientStorage, &clientLen,
                                   host, service);
                 waiting = 0; // Stop waiting
+#ifdef USR
+                // We have to take the username.
+                if (sscanf((char *)genericPtr, "/HELO FROM %20s",
+                           clientUsername) != 1)
+                {
+                    fprintf(stderr, "Erreur : sscanf()");
+                    exit(EXIT_FAILURE);
+                }
+
+                if (clientUsername[0] != '\0')
+                {
+                    if (table->countClients < table->maxClients)
+                    {
+                        strcpy(table->clientsLst[table->countClients].username,
+                               clientUsername);
+
+                        // We have to store the client informations.
+                        table->clientsLst[table->countClients].address =
+                            clientStorage;
+
+                        // We only fill the welcome message variable.
+                        struct FullMessage fullMessage = {0};
+                        int result = snprintf(fullMessage.welcomeMessage,
+                                              MAX_WELCOME_MSG,
+                                              "%s join the server\n",
+                                              clientUsername);
+
+                        checkSnprintf(result, MAX_WELCOME_MSG);
+
+                        // We must inform everyone before him in the chat room
+                        //( so a broadcast)
+                        // if there's only one user then no need to inform him
+                        if (table->countClients >= 1)
+                        {
+                            // There is at least two users.
+                            // printf("t - 1 : %d\n", table->countClients - 1);
+                            for (int i = table->countClients - 1; i >= 0; i--)
+                            {
+                                // We inform all of them except the last to one
+                                // to join.
+                                // printf("got here here.\n");
+                                CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage), 0,
+                                             (struct sockaddr *)&table->clientsLst[i].address,
+                                             sizeof(table->clientsLst[i].address)));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // We decrement or we will have destination addr error
+                        // in the main loop, because we increment it above even
+                        // though there weren't a place for him.
+                        CHECK(sem_wait(&table->semCountClient));
+                        table->countClients--;
+                        CHECK(sem_post(&table->semCountClient));
+
+                        printf("Server is full.\n");
+
+                        struct FullMessage fullMessage = {0};
+                        strcpy(fullMessage.welcomeMessage, "/QUIT");
+
+                        // We make him to quit the server.
+                        CHECK(sendto(sockfd, &(fullMessage), sizeof(fullMessage),
+                                     0, (struct sockaddr *)&clientStorage,
+                                     sizeof(clientStorage)));
+                        fflush(stdout);
+                    }
+                } // END a user entered a name.
+
+                waiting = 1; // We keep waiting for new usr.
+#endif
             }
 
             free(genericPtr); // Free allocated memory
@@ -393,7 +518,6 @@ int main(int argc, char *argv[])
 
     char message[MAX_MSG_LEN] = {0};
 
-    // printf("Connected..\n");
     /* main loop */
     int running = 1;
     while (running)
@@ -404,11 +528,8 @@ int main(int argc, char *argv[])
         // Waiting an event from the keyboard.
         if (fds[0].revents & POLLIN)
         {
-            // Envoyer la commande /QUIT au serveur ou à une adresse
-            // spécifique
-
+            // Event occurred from the keyboard.
             fgets(message, MAX_MSG_LEN, stdin);
-            // printf("Sending: %s", message);
 
             // We load the data to transmit.
 #ifdef BIN
@@ -421,10 +542,37 @@ int main(int argc, char *argv[])
             }
 #endif
 
+#ifdef USR
+            struct FullMessage fullMessage = {0};
+
+            // We don't send empty message.
+            if (message[0] != '\n' && message[0] != '\0')
+            {
+                // strcpy(fullMessage.username, clientUsername);
+                sprintf(fullMessage.username, "%s", clientUsername);
+                sprintf(fullMessage.message, "%s", message);
+
+                // Iterate through clients and send message to all except the sender
+                for (int i = tableClient->countClients; i >= 0; i--)
+                {
+                    // Check if the client is not the sender
+                    if (strcmp(tableClient->clientsLst[i].username, clientUsername) != 0)
+                    {
+                        // They are different.
+                        // Send message to client[i]
+                        CHECK(sendto(sockfd, &fullMessage, sizeof(fullMessage), 0,
+                                     (struct sockaddr *)&tableClient->clientsLst[i].address,
+                                     sizeof(tableClient->clientsLst[i].address)));
+                    }
+                }
+            }
+
+#else
             // And Then we transmit the data.
             CHECK(sendto(sockfd, message, strlen(message), 0,
                          (struct sockaddr *)&clientStorage,
                          clientLen));
+#endif
 
 #ifdef FILEIO
             // The client.
@@ -706,20 +854,60 @@ int main(int argc, char *argv[])
             // running is 0 if message is equal to QUIT, so we quit the loop.
             running = !(message[0] == QUIT);
 #else
+
             // Same here folks.
-            running = !(strncmp(message, "/QUIT", 5) == 0);
+            if (strncmp(message, "/QUIT", 5) == 0)
+            {
+#ifdef USR
+                // before quitting we have the decrement the countClients var
+                // we do not only decrement we have to move the last client
+                // to at the place of the one leaving the room.
+                CHECK(sem_wait(&tableClient->semCountClient));
+                if (tableClient->countClients >= 1)
+                {
+                    // There is atleast two clients (0 and 1)
+                    for (int i = 0; i <= tableClient->countClients; i++)
+                    {
+                        if (strcmp(tableClient->clientsLst[i].username,
+                                   fullMessage.username) == 0)
+                        {
+                            // we replace the client whose gone by the last one.
+                            tableClient->clientsLst[i] =
+                                tableClient->clientsLst[tableClient->countClients];
+                            tableClient->countClients--;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    tableClient->countClients--;
+                }
+                CHECK(sem_post(&tableClient->semCountClient));
+#endif
+                running = 0;
+            }
 #endif
         }
 
         // Wainting an event from the socket.
         if (fds[1].revents & POLLIN)
         {
+#ifdef USR
+            struct FullMessage buffFullMessage = {0};
+            CHECK(bytesRecv = recvfrom(sockfd, &buffFullMessage,
+                                       sizeof(struct FullMessage), 0,
+                                       (struct sockaddr *)&clientStorage,
+                                       &clientLen));
+
+#else
             CHECK(bytesRecv = recvfrom(sockfd, message, MAX_MSG_LEN, 0,
                                        (struct sockaddr *)&clientStorage,
                                        &clientLen));
 
             // A message is well received.
             message[bytesRecv] = '\0';
+#endif
 
 #ifdef BIN
             // if message is QUIT we quit the loop else print the received the
@@ -735,9 +923,43 @@ int main(int argc, char *argv[])
             else
             {
                 // Action print DATA
-                // printf("REC from the socket\n");
-                // printf("Received from sock...  : ");
+#ifdef USR
+                // The welcome message.
+                if (strlen(buffFullMessage.welcomeMessage) > 1)
+                {
+                    if (strncmp(buffFullMessage.welcomeMessage, "/QUIT", 5) == 0)
+                    {
+                        printf("This group is full, you cannot join it.\n");
+                        // Unmap the shared memory object
+                        CHECK(munmap(tableClient, stbufshmClient.st_size));
+
+                        // Close the shared memory object
+                        CHECK(close(shmfdclient));
+                        running = 0;
+                    }
+                    else
+                    {
+                        printf("%s", buffFullMessage.welcomeMessage);
+                    }
+                }
+                else
+                {
+                    // A message from a user.
+                    if (strncmp(buffFullMessage.message, "/QUIT", 5) == 0)
+                    {
+                        printf("%s left the server.\n", buffFullMessage.username);
+                        printf("bye!\n");
+                    }
+                    else
+                    {
+                        printf("%s: %s", buffFullMessage.username,
+                               buffFullMessage.message);
+                    }
+                }
+#else
                 printf("%s", message);
+#endif
+                fflush(stdout);
 
                 // if FILEIO is defined we check if the client is requesting a
                 // file by typing this command /GET fileName.
@@ -1015,7 +1237,5 @@ int main(int argc, char *argv[])
 
     /* close socket */
     CHECK(close(sockfd));
-
-    /* free memory */
     return 0;
 }
