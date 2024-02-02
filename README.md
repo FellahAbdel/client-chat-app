@@ -14,29 +14,24 @@ Le programme utilise un protocole simpliste en mode texte pour l'ouverture et la
 
 ![state chart](protocol.svg)
 
-Pour créer un socket unique compatible `IPv4` et `IPv6`, vous devez créer un socket `AF_INET6` et désactiver l'option `bindv6only` sur ce dernier via la primitive `setsockopt()` :
+## Installation
+```bash
+$git clone
+```
+Pour compiler le programme, il suffit de taper sur le terminal `scons` qui va lancer le script python `SConstruct` qui généra quatre éxecutables grâce à une compilation conditionnelle :
+- client-chat
+- client-chat-bin
+- client-chat-file
+- client-chat-usr
 
-    int value = 0;
-    CHECK (setsockopt (sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &value, sizeof value));
+## Utilisation
+Pour executer la version basique où un client et le seveur peuvent en communiquer, ouvrez deux terminaux et entrez la commande suivante :
+```bash
+$ ./client-chat 15000
+```
+Avec l'executable `client-chat-bin` c'est quasi la même version que celle basique sauf qu'avec celle-là on utilise des commandes binaires pour initier le salon de discussion au lieu des commandes textes.
 
-Dans le cas où aucun client n'est présent, il faut utiliser toutes les adresses de l'hôte lors de l'appel à `bind` via la variable `in6addr_any` :
+Par contre, avec `client-chat-file` c'est un executable qui permet le transfert de fichier securisé entre le client et le serveur en utilisant le protocole UDP. Les fichiers transferés seront logés respectivement dans les dossiers `/client-files` et `/server-files` selon celui qui l'envoie.
 
-    struct sockaddr *s       = (struct sockaddr *)     &ss;
-    struct sockaddr_in6 *in6 = (struct sockaddr_in6 *) &ss;
-    in6->sin6_addr           = in6addr_any;
+En fin, dans le dernier executable, j'ai utilisé un segment de mémoire partagé ce qui limite la communication des utilisateurs à une seule machine. Dans cette communication plusieurs utilisateurs peuvent s'envoyer simulanement des messages.
 
-Pour écouter simultanément sur plusieurs descripteurs (ici l'entrée standard et le socket), vous devez utiliser la primitive :
-
-    int poll (struct pollfd *fds, nfds_t nfds, int timeout);
-
-L'ensemble des descripteurs à surveiller est présent dans une liste de structure `struct pollfd` :
-
-    struct pollfd {
-        int   fd;         /* descripteur */
-        short events;     /* requested events */
-        short revents;    /* returned events */
-    };
-
-Le champ `events` est un champ de bit correspondant aux événements à surveiller pour le descripteur `fd`. Le champ `revents` est également un champ de bits, complété par le noyau au retour de `poll()`, qui contient les événements surveillés pour le descripteur `fd` qui se sont réellement produits. Consulter le manuel utilisateur sur `poll()` pour découvrir la liste des événements possibles et plus généralement le fonctionnement de cette primitive.
-
-Tout commit compile automatiquement votre programme et lance les tests dessus. Tous les tests doivent réussir avant de passer à l'exercice suivant.
